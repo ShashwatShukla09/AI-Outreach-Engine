@@ -171,7 +171,7 @@ def score_company(
     ]
 
     buyer_relevance_score = (
-        max(contact_scores)
+        sorted(contact_scores)[-1]
         if contact_scores
         else 0
     )
