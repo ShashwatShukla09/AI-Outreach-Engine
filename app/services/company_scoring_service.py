@@ -15,6 +15,9 @@ from app.repositories.company_score_repository import (
 from app.services.signal_scoring_service import (
     get_intent_score_details,
 )
+from app.repositories.contact_repository import (
+    get_company_contacts,
+)
 
 def normalise(value: str) -> str:
     return value.strip().lower()
@@ -157,22 +160,52 @@ def score_company(
     )
 
     # Buyer relevance: 10
-    #
-    # We have not discovered contacts yet, so we do
-    # not invent this score.
-    buyer_relevance_score = 0
+    contacts = get_company_contacts(
+        company_id
+    )
+
+    contact_scores = [
+        contact["relevance_score"]
+        for contact in contacts
+        if contact["relevance_score"] is not None
+    ]
+
+    buyer_relevance_score = (
+        max(contact_scores)
+        if contact_scores
+        else 0
+    )
+
+    if buyer_relevance_score > 0:
+        matched_contacts = [
+            (
+                f'{contact["first_name"]} '
+                f'{contact["last_name"]} '
+                f'({contact["job_title"]})'
+            )
+            for contact in contacts
+            if contact["relevance_score"]
+            == buyer_relevance_score
+        ]
+
+        buyer_explanation = (
+            "Relevant buyer found: "
+            + ", ".join(matched_contacts)
+        )
+    else:
+        buyer_explanation = (
+            "No evaluated ICP-matching buyer found yet."
+        )
 
     components.append(
         ScoreComponent(
             name="buyer_relevance",
             score=buyer_relevance_score,
             max_score=10,
-            explanation=(
-                "Buyer relevance has not been "
-                "evaluated yet."
-            ),
+            explanation=buyer_explanation,
         )
     )
+
 
     icp_fit_score = (
         industry_score
