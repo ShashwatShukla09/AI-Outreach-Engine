@@ -14,7 +14,7 @@ def test_root():
     data = response.json()
 
     assert data["name"] == "AI Buyer Intelligence & Outreach Engine"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "0.3.0"
     assert data["status"] == "running"
 
 

@@ -55,6 +55,9 @@ def create_tables() -> None:
 
                 notes TEXT,
 
+                status TEXT NOT NULL DEFAULT 'DRAFT',
+                reviewed_at TEXT,
+
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                 FOREIGN KEY (product_id)
