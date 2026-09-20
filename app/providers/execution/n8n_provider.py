@@ -15,6 +15,7 @@ class N8nExecutionProvider(
         self,
         webhook_url: Optional[str] = None,
         timeout: float = 15.0,
+        safe_test_mode: bool = True,
     ):
         self.webhook_url = (
             webhook_url
@@ -24,6 +25,7 @@ class N8nExecutionProvider(
         )
 
         self.timeout = timeout
+        self.safe_test_mode = safe_test_mode
 
         if not self.webhook_url:
             raise ValueError(
@@ -52,6 +54,14 @@ class N8nExecutionProvider(
             "message_body": (
                 message["message_body"]
             ),
+
+            # n8n must independently verify that
+            # Python already approved this message.
+            "approval_status": message["status"],
+
+            # Defaults to True so development cannot
+            # accidentally reach the Gmail branch.
+            "safe_test_mode": self.safe_test_mode,
         }
 
     def send(
@@ -62,6 +72,12 @@ class N8nExecutionProvider(
         if not contact.get("email"):
             raise ValueError(
                 "Contact has no email address."
+            )
+
+        if message.get("status") != "APPROVED":
+            raise ValueError(
+                "Only APPROVED outreach can be "
+                "sent to n8n."
             )
 
         payload = self.build_payload(
@@ -83,6 +99,15 @@ class N8nExecutionProvider(
             response_data = {
                 "raw_response": response.text
             }
+
+        if not response_data.get(
+            "accepted",
+            False,
+        ):
+            raise ValueError(
+                "n8n did not accept outreach "
+                "execution."
+            )
 
         return {
             "success": True,
