@@ -10,7 +10,7 @@
 
     <link
         rel="stylesheet"
-        href="css/styles.css?v=12"
+        href="css/styles.css?v=16"
     >
 </head>
 
@@ -302,6 +302,133 @@
                 </div>
             </section>
         </div>
+
+        <div
+            id="outreach-view"
+            class="app-view"
+        >
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">
+                        OUTREACH
+                    </p>
+
+                    <h2>Outreach Workspace</h2>
+
+                    <p class="subtitle">
+                        Review, approve and track every
+                        outbound message.
+                    </p>
+                </div>
+
+                <div class="safe-mode">
+                    Human Approved
+                </div>
+            </header>
+
+            <section class="company-metrics outreach-metrics">
+                <article class="company-summary-card">
+                    <span>NEEDS REVIEW</span>
+                    <strong id="outreach-review-count">—</strong>
+                </article>
+
+                <article class="company-summary-card">
+                    <span>READY TO SEND</span>
+                    <strong id="outreach-approved-count">—</strong>
+                </article>
+
+                <article class="company-summary-card">
+                    <span>SENT</span>
+                    <strong id="outreach-sent-count">—</strong>
+                </article>
+
+                <article class="company-summary-card">
+                    <span>REJECTED</span>
+                    <strong id="outreach-rejected-count">—</strong>
+                </article>
+            </section>
+
+            <section class="workspace outreach-workspace">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">
+                            MESSAGE PIPELINE
+                        </p>
+
+                        <h3>Outbound messages</h3>
+                    </div>
+
+                    <button
+                        id="refresh-outreach"
+                        class="secondary-button"
+                        type="button"
+                    >
+                        Refresh
+                    </button>
+                </div>
+
+                <div
+                    class="outreach-filter-bar"
+                    role="group"
+                    aria-label="Filter outreach messages"
+                >
+                    <button
+                        class="outreach-filter active"
+                        data-outreach-filter="ALL"
+                        type="button"
+                    >
+                        All
+                    </button>
+
+                    <button
+                        class="outreach-filter"
+                        data-outreach-filter="DRAFT"
+                        type="button"
+                    >
+                        Needs Review
+                    </button>
+
+                    <button
+                        class="outreach-filter"
+                        data-outreach-filter="APPROVED"
+                        type="button"
+                    >
+                        Ready
+                    </button>
+
+                    <button
+                        class="outreach-filter"
+                        data-outreach-filter="SENT"
+                        type="button"
+                    >
+                        Sent
+                    </button>
+
+                    <button
+                        class="outreach-filter"
+                        data-outreach-filter="REJECTED"
+                        type="button"
+                    >
+                        Rejected
+                    </button>
+                </div>
+
+                <div
+                    id="outreach-list"
+                    class="review-queue outreach-list"
+                >
+                    <div class="queue-loading">
+                        <div class="empty-icon">◎</div>
+
+                        <h4>Loading outreach</h4>
+
+                        <p>
+                            Fetching the outbound message pipeline.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
     </main>
 
     <div
@@ -346,6 +473,6 @@
         </aside>
     </div>
 
-    <script src="js/app.js?v=13"></script>
+    <script src="js/app.js?v=14"></script>
 </body>
 </html>

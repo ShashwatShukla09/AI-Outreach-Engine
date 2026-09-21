@@ -1,5 +1,15 @@
 const API_BASE_URL = "http://localhost:8000";
 
+
+async function refreshOutreachData() {
+    await loadDashboard();
+
+    if (outreachLoaded) {
+        await loadOutreachWorkspace();
+    }
+}
+
+
 async function loadDashboard() {
     const refreshButton = document.getElementById("refresh-dashboard");
 
@@ -227,6 +237,16 @@ async function openOutreachReview(outreachId) {
 
         const data = await response.json();
 
+        if (data.outreach.status === "REJECTED") {
+            if (eyebrow) {
+                eyebrow.textContent = "OUTREACH HISTORY";
+            }
+
+            if (title) {
+                title.textContent = "Rejected Outreach";
+            }
+        }
+
         renderOutreachReview(
             data.outreach,
             data.review
@@ -418,7 +438,7 @@ async function updateOutreachStatus(
             );
         }
 
-        await loadDashboard();
+        await refreshOutreachData();
 
         closeOutreachReview();
 
@@ -611,7 +631,7 @@ async function saveOutreachEdit(outreachId) {
             );
         }
 
-        await loadDashboard();
+        await refreshOutreachData();
 
         renderOutreachReview(
             data.outreach,
@@ -787,7 +807,7 @@ async function executeApprovedOutreach(
             setTimeout(resolve, 650);
         });
 
-        await loadDashboard();
+        await refreshOutreachData();
 
         return data;
 
@@ -1316,7 +1336,13 @@ document.addEventListener("click", async (event) => {
     }
 
     if (viewName === "outreach") {
-        showAppView("dashboard");
+        showAppView("outreach");
+
+        if (!outreachLoaded) {
+            await loadOutreachWorkspace();
+        }
+
+        return;
     }
 });
 
@@ -2027,4 +2053,279 @@ document.addEventListener("click", (event) => {
         "aria-expanded",
         String(isOpen)
     );
+});
+
+
+// OUTREACH WORKSPACE
+
+let outreachLoaded = false;
+let outreachWorkspaceData = null;
+let activeOutreachFilter = "ALL";
+
+
+function setOutreachMetric(id, value) {
+    const element = document.getElementById(id);
+
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+
+function getOutreachWorkspaceMessages() {
+    if (!outreachWorkspaceData) {
+        return [];
+    }
+
+    return [
+        ...(outreachWorkspaceData.review_queue || []),
+        ...(outreachWorkspaceData.ready_to_send || []),
+        ...(outreachWorkspaceData.sent_history || []),
+        ...(outreachWorkspaceData.rejected_history || []),
+    ];
+}
+
+
+function renderOutreachWorkspace() {
+    const container = document.getElementById(
+        "outreach-list"
+    );
+
+    if (!container || !outreachWorkspaceData) {
+        return;
+    }
+
+    const messages = getOutreachWorkspaceMessages()
+        .filter((message) => {
+            return (
+                activeOutreachFilter === "ALL" ||
+                message.status === activeOutreachFilter
+            );
+        });
+
+    if (!messages.length) {
+        container.innerHTML = `
+            <div class="queue-loading">
+                <div class="empty-icon">✓</div>
+                <h4>No outreach here</h4>
+                <p>
+                    No messages match this lifecycle state.
+                </p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = messages.map((message) => {
+        let actionHtml = "";
+
+        if (message.status === "DRAFT") {
+            actionHtml = `
+                <button
+                    class="review-button"
+                    type="button"
+                    data-outreach-id="${message.id}"
+                >
+                    Review
+                    <span>→</span>
+                </button>
+            `;
+        }
+
+        if (message.status === "APPROVED") {
+            actionHtml = `
+                <button
+                    class="execute-button"
+                    type="button"
+                    data-execute-id="${message.id}"
+                >
+                    Execute
+                    <span>→</span>
+                </button>
+            `;
+        }
+
+        if (message.status === "SENT") {
+            actionHtml = `
+                <button
+                    class="execute-button"
+                    type="button"
+                    data-activity-id="${message.id}"
+                >
+                    View Activity
+                    <span>→</span>
+                </button>
+            `;
+        }
+
+        if (message.status === "REJECTED") {
+            actionHtml = `
+                <button
+                    class="review-button"
+                    type="button"
+                    data-outreach-id="${message.id}"
+                >
+                    View Details
+                    <span>→</span>
+                </button>
+            `;
+        }
+
+        const statusClass = (
+            message.status === "APPROVED" ||
+            message.status === "SENT"
+        )
+            ? "approved-pill"
+            : "status-pill";
+
+        return `
+            <article
+                class="review-item send-item"
+                data-outreach-status="${escapeHtml(
+                    message.status
+                )}"
+            >
+                <div class="review-item-main">
+                    <div class="review-meta">
+                        <span class="channel-pill">
+                            ${escapeHtml(message.channel)}
+                        </span>
+
+                        <span class="${statusClass}">
+                            ${escapeHtml(message.status)}
+                        </span>
+
+                        <span class="outreach-id">
+                            #${message.id}
+                        </span>
+                    </div>
+
+                    <h4>
+                        ${escapeHtml(
+                            message.subject ||
+                            "Untitled outreach"
+                        )}
+                    </h4>
+
+                    <p class="message-preview">
+                        ${escapeHtml(message.message_body)}
+                    </p>
+                </div>
+
+                ${actionHtml}
+            </article>
+        `;
+    }).join("");
+}
+
+
+async function loadOutreachWorkspace() {
+    const refreshButton = document.getElementById(
+        "refresh-outreach"
+    );
+
+    try {
+        if (refreshButton) {
+            refreshButton.disabled = true;
+            refreshButton.textContent = "Refreshing…";
+        }
+
+        const response = await fetch(
+            `${API_BASE_URL}/api/outreach/dashboard/summary`
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `Outreach request failed: ${response.status}`
+            );
+        }
+
+        const data = await response.json();
+
+        outreachWorkspaceData = data;
+
+        setOutreachMetric(
+            "outreach-review-count",
+            data.metrics.pending_review
+        );
+
+        setOutreachMetric(
+            "outreach-approved-count",
+            data.metrics.approved
+        );
+
+        setOutreachMetric(
+            "outreach-sent-count",
+            data.metrics.sent
+        );
+
+        setOutreachMetric(
+            "outreach-rejected-count",
+            data.metrics.rejected
+        );
+
+        renderOutreachWorkspace();
+
+        outreachLoaded = true;
+
+    } catch (error) {
+        console.error(
+            "Could not load outreach workspace:",
+            error
+        );
+
+        const container = document.getElementById(
+            "outreach-list"
+        );
+
+        if (container) {
+            container.innerHTML = `
+                <div class="queue-loading">
+                    <div class="empty-icon">!</div>
+                    <h4>Couldn't load outreach</h4>
+                    <p>
+                        Check that the FastAPI server is running.
+                    </p>
+                </div>
+            `;
+        }
+
+    } finally {
+        if (refreshButton) {
+            refreshButton.disabled = false;
+            refreshButton.textContent = "Refresh";
+        }
+    }
+}
+
+
+document.addEventListener("click", async (event) => {
+    const filterButton = event.target.closest(
+        "[data-outreach-filter]"
+    );
+
+    if (filterButton) {
+        activeOutreachFilter =
+            filterButton.dataset.outreachFilter;
+
+        document.querySelectorAll(
+            ".outreach-filter"
+        ).forEach((button) => {
+            button.classList.toggle(
+                "active",
+                button === filterButton
+            );
+        });
+
+        renderOutreachWorkspace();
+        return;
+    }
+
+    const refreshButton = event.target.closest(
+        "#refresh-outreach"
+    );
+
+    if (refreshButton) {
+        await loadOutreachWorkspace();
+    }
 });

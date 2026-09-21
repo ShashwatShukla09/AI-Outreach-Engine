@@ -318,4 +318,5 @@ def get_outreach_dashboard_summary():
         "review_queue": drafts[:10],
         "ready_to_send": approved[:10],
         "sent_history": sent[:10],
+        "rejected_history": rejected[:10],
     }
