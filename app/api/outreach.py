@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from app.db.database import get_connection
 
 from app.providers.execution.n8n_provider import (
     N8nExecutionProvider,
@@ -6,8 +7,10 @@ from app.providers.execution.n8n_provider import (
 from app.repositories.outreach_event_repository import (
     get_outreach_events,
 )
+
 from app.repositories.outreach_repository import (
     get_outreach_message,
+    list_outreach_messages,
 )
 from app.schemas.outreach import OutreachEdit
 from app.services.outreach_execution_service import (
@@ -251,4 +254,68 @@ def get_outreach_events_endpoint(
         "outreach_id": outreach_id,
         "status": message["status"],
         "events": events,
+    }
+
+@router.get("/dashboard/summary")
+def get_outreach_dashboard_summary():
+    drafts = list_outreach_messages(
+        status="DRAFT",
+        limit=1000,
+    )
+
+    approved = list_outreach_messages(
+        status="APPROVED",
+        limit=1000,
+    )
+
+    sent = list_outreach_messages(
+        status="SENT",
+        limit=1000,
+    )
+
+    rejected = list_outreach_messages(
+        status="REJECTED",
+        limit=1000,
+    )
+
+    connection = get_connection()
+
+    try:
+        qualified_companies = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM companies
+            WHERE qualification_status = 'QUALIFIED'
+            """
+        ).fetchone()[0]
+
+        high_intent = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM companies c
+            WHERE c.qualification_status = 'QUALIFIED'
+              AND (
+                  SELECT cs.priority
+                  FROM company_scores cs
+                  WHERE cs.company_id = c.id
+                  ORDER BY cs.id DESC
+                  LIMIT 1
+              ) = 'HIGH'
+            """
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+    return {
+        "metrics": {
+            "qualified_companies": qualified_companies,
+            "high_intent": high_intent,
+            "pending_review": len(drafts),
+            "approved": len(approved),
+            "sent": len(sent),
+            "rejected": len(rejected),
+        },
+        "review_queue": drafts[:10],
+        "ready_to_send": approved[:10],
+        "sent_history": sent[:10],
     }

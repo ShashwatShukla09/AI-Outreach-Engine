@@ -6,6 +6,7 @@ from app.services.company_qualification_service import (
 )
 from app.services.enrichment_service import (
     enrich_company,
+    queue_missing_company_data,
 )
 
 
@@ -22,6 +23,12 @@ def qualify_enrich_requalify(
             "enriched": False,
             "final_qualification": initial_result,
         }
+
+    queue_missing_company_data(
+        company_id=company_id,
+        missing_fields=initial_result.missing_fields,
+        provider=provider_name,
+    )
 
     updated_company = enrich_company(
         company_id=company_id,

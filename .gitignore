@@ -6,3 +6,9 @@ __pycache__/
 .env
 
 data/*.db
+
+# Pytest temporary database
+tests/.pytest_buyer_intelligence.db
+
+# Local database backups
+data/backups/

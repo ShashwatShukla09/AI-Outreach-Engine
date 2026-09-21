@@ -315,3 +315,45 @@ def mark_outreach_sent(
 
     finally:
         connection.close()
+
+
+def list_outreach_messages(
+    status: Optional[str] = None,
+    limit: int = 100,
+):
+    connection = get_connection()
+
+    try:
+        if status is None:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM outreach_messages
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
+        else:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM outreach_messages
+                WHERE status = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (
+                    status,
+                    limit,
+                ),
+            ).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+        connection.close()

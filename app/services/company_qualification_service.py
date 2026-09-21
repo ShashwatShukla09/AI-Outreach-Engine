@@ -4,9 +4,6 @@ from app.db.database import get_connection
 from app.repositories.icp_repository import get_icp
 from app.schemas.icp import ICPResponse
 from app.schemas.qualification import QualificationResult
-from app.services.enrichment_service import (
-    queue_missing_company_data,
-)
 
 def get_company(company_id: int):
     connection = get_connection()
@@ -166,12 +163,6 @@ def qualify_company(
         status = "NEEDS_REVIEW"
     else:
         status = "QUALIFIED"
-
-    queue_missing_company_data(
-        company_id=company_id,
-        missing_fields=missing_fields,
-        provider="public",
-    )
 
     update_qualification_status(
         company_id=company_id,

@@ -1,3 +1,4 @@
+from app.db.database import get_connection
 from app.providers.discovery.mock_provider import (
     MockCompanyDiscoveryProvider,
 )
@@ -111,7 +112,7 @@ def test_missing_fields_create_enrichment_jobs():
     }
 
 
-def test_qualification_automatically_queues_enrichment():
+def test_qualification_identifies_missing_data_without_queuing():
     company = create_real_company()
 
     result = qualify_company(company.id)
@@ -131,15 +132,7 @@ def test_qualification_automatically_queues_enrichment():
         if job["company_id"] == company.id
     ]
 
-    enrichment_types = {
-        job["enrichment_type"]
-        for job in company_jobs
-    }
-
-    assert enrichment_types == {
-        "employee_count",
-        "business_model",
-    }
+    assert company_jobs == []
 
 def test_enrichment_updates_company_and_completes_jobs():
     company = create_real_company()
@@ -147,6 +140,19 @@ def test_enrichment_updates_company_and_completes_jobs():
     qualification = qualify_company(company.id)
 
     assert qualification.status == "NEEDS_REVIEW"
+
+    queued_jobs = queue_missing_company_data(
+        company_id=company.id,
+        missing_fields=qualification.missing_fields,
+        provider="public",
+    )
+
+    assert len(queued_jobs) == 2
+
+    assert all(
+        job["status"] == "PENDING"
+        for job in queued_jobs
+    )
 
     updated = enrich_company(
         company_id=company.id,
@@ -168,11 +174,49 @@ def test_enrichment_updates_company_and_completes_jobs():
         == "Marketplace"
     )
 
-    jobs = get_pending_enrichment_jobs()
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM enrichment_jobs
+            WHERE company_id = ?
+            ORDER BY id
+            """,
+            (company.id,),
+        ).fetchall()
+
+        completed_jobs = [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+        connection.close()
+
+    assert len(completed_jobs) == 2
+
+    assert all(
+        job["provider"] == "public"
+        for job in completed_jobs
+    )
+
+    assert all(
+        job["status"] == "COMPLETED"
+        for job in completed_jobs
+    )
+
+    assert all(
+        job["completed_at"] is not None
+        for job in completed_jobs
+    )
+
+    pending_jobs = get_pending_enrichment_jobs()
 
     company_pending_jobs = [
         job
-        for job in jobs
+        for job in pending_jobs
         if job["company_id"] == company.id
     ]
 

@@ -133,3 +133,28 @@ def complete_enrichment_jobs(
 
     finally:
         connection.close()
+
+
+def get_company_enrichment_jobs(
+    company_id: int,
+) -> List[dict]:
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM enrichment_jobs
+            WHERE company_id = ?
+            ORDER BY id
+            """,
+            (company_id,),
+        ).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+        connection.close()
