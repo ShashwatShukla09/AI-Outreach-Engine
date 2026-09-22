@@ -56,10 +56,19 @@ def matches_any(
 ) -> bool:
     normalised_value = normalise(value)
 
-    return any(
-        normalised_value == normalise(allowed)
-        for allowed in allowed_values
-    )
+    for allowed in allowed_values:
+        normalised_allowed = normalise(allowed)
+
+        if normalised_value == normalised_allowed:
+            return True
+
+        if normalised_allowed in normalised_value:
+            return True
+
+        if normalised_value in normalised_allowed:
+            return True
+
+    return False
 
 
 def qualify_company(
@@ -139,7 +148,15 @@ def qualify_company(
         )
 
     # Business model
-    if not company["business_model"]:
+    #
+    # An empty ICP business_models list means the ICP does
+    # not restrict companies by business model.
+    if not icp.business_models:
+        reasons.append(
+            "ICP has no business-model restriction."
+        )
+
+    elif not company["business_model"]:
         missing_fields.append("business_model")
 
     elif not matches_any(

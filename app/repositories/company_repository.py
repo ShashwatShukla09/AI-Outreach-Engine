@@ -46,11 +46,13 @@ def create_company(
                 industry,
                 employee_count,
                 business_model,
+                description,
+                linkedin_url,
                 source,
                 source_url,
                 qualification_status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 icp_id,
@@ -63,6 +65,8 @@ def create_company(
                 company.industry,
                 company.employee_count,
                 company.business_model,
+                company.description,
+                company.linkedin_url,
                 company.source,
                 company.source_url,
                 "UNREVIEWED",

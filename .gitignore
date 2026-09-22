@@ -12,3 +12,6 @@ tests/.pytest_buyer_intelligence.db
 
 # Local database backups
 data/backups/
+
+# Local real-company research/import data
+data/imports/

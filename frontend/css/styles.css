@@ -1719,8 +1719,7 @@ body.review-open {
 }
 
 .company-list-item:hover {
-    transform: translateX(3px);
-    background: rgba(255, 255, 255, 0.72);
+    transform: translateX(2px);
 }
 
 .company-list-item.selected {
@@ -2433,10 +2432,10 @@ body.review-open {
 }
 
 .company-list-item:hover {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.68);
     box-shadow:
-        0 1px 0 rgba(0, 0, 0, 0.04),
-        0 8px 20px rgba(0, 0, 0, 0.04);
+        inset 0 0 0 1px rgba(18, 18, 16, 0.07),
+        0 6px 16px rgba(0, 0, 0, 0.025);
 }
 
 
@@ -2466,4 +2465,156 @@ body.review-open {
 
 .company-metrics .company-summary-card:first-child {
     background: rgba(244, 190, 216, 0.22);
+}
+
+
+/* Companies workspace — bounded intelligence console */
+
+.companies-list-panel,
+.company-intelligence-panel {
+    height: calc(100vh - 330px);
+    min-height: 560px;
+    max-height: 760px;
+}
+
+.companies-list-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.companies-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 6px;
+    overscroll-behavior: contain;
+}
+
+.company-intelligence-panel {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.companies-list::-webkit-scrollbar,
+.company-intelligence-panel::-webkit-scrollbar {
+    width: 5px;
+}
+
+.companies-list::-webkit-scrollbar-thumb,
+.company-intelligence-panel::-webkit-scrollbar-thumb {
+    background: rgba(18, 18, 16, 0.18);
+    border-radius: 999px;
+}
+
+
+/* Company prospect filters */
+
+.company-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.company-filter {
+    appearance: none;
+    border: 0;
+    border-radius: 999px;
+
+    padding: 7px 10px;
+
+    background: rgba(18, 18, 16, 0.06);
+    color: rgba(18, 18, 16, 0.62);
+
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+
+    cursor: pointer;
+}
+
+.company-filter span {
+    margin-left: 4px;
+    opacity: 0.65;
+}
+
+.company-filter:hover {
+    background: rgba(18, 18, 16, 0.1);
+    color: var(--black);
+}
+
+.company-filter.active {
+    background: var(--black);
+    color: var(--cream);
+}
+
+.company-filter.active span {
+    opacity: 0.75;
+}
+
+
+/* Refined relevance score */
+
+.company-list-score {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 1px;
+}
+
+.relevance-score-number {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    line-height: 1;
+}
+
+.relevance-score-max {
+    font-size: 9px;
+    font-weight: 700;
+    opacity: 0.55;
+    line-height: 1;
+}
+
+
+/* Preserve selected company while hovering */
+
+.company-list-item.selected,
+.company-list-item.selected:hover {
+    background: var(--black);
+    color: white;
+    box-shadow:
+        0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.company-list-item.selected:hover {
+    transform: translateX(2px);
+}
+
+
+/* Compact pre-enrichment relevance score */
+
+.company-list-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+}
+
+.relevance-score-number {
+    font-size: 19px;
+    font-weight: 750;
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+}
+
+.relevance-score-max {
+    font-size: 8px;
+    font-weight: 750;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    opacity: 0.48;
 }

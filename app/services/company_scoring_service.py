@@ -29,10 +29,19 @@ def matches_any(
 ) -> bool:
     normalised_value = normalise(value)
 
-    return any(
-        normalised_value == normalise(allowed)
-        for allowed in allowed_values
-    )
+    for allowed in allowed_values:
+        normalised_allowed = normalise(allowed)
+
+        if normalised_value == normalised_allowed:
+            return True
+
+        if normalised_allowed in normalised_value:
+            return True
+
+        if normalised_value in normalised_allowed:
+            return True
+
+    return False
 
 
 def score_company(
@@ -132,9 +141,18 @@ def score_company(
     )
 
     # Business model: 10
-    business_model_score = 0
+    #
+    # An empty ICP business_models list means the ICP
+    # does not restrict companies by business model.
+    # In that case, qualified companies should not lose
+    # points for a criterion the ICP does not require.
+    if not icp.business_models:
+        business_model_score = 10
+        business_model_explanation = (
+            "ICP has no business-model restriction."
+        )
 
-    if (
+    elif (
         company["business_model"]
         and matches_any(
             company["business_model"],
@@ -142,20 +160,22 @@ def score_company(
         )
     ):
         business_model_score = 10
+        business_model_explanation = (
+            "Company business model matches the ICP."
+        )
+
+    else:
+        business_model_score = 0
+        business_model_explanation = (
+            "Company business model does not match the ICP."
+        )
 
     components.append(
         ScoreComponent(
             name="business_model",
             score=business_model_score,
             max_score=10,
-            explanation=(
-                "Company business model matches the ICP."
-                if business_model_score
-                else (
-                    "Company business model does not "
-                    "match the ICP."
-                )
-            ),
+            explanation=business_model_explanation,
         )
     )
 

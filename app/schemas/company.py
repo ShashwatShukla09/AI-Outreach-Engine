@@ -35,6 +35,16 @@ class CompanyCandidate(BaseModel):
         max_length=200,
     )
 
+    description: Optional[str] = Field(
+        default=None,
+        max_length=5000,
+    )
+
+    linkedin_url: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+    )
+
     source: str = Field(
         ...,
         min_length=2,
@@ -58,6 +68,9 @@ class CompanyResponse(BaseModel):
     industry: Optional[str]
     employee_count: Optional[int]
     business_model: Optional[str]
+
+    description: Optional[str]
+    linkedin_url: Optional[str]
 
     source: Optional[str]
     source_url: Optional[str]

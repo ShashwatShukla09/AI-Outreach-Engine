@@ -16,6 +16,9 @@ from app.repositories.signal_repository import (
 from app.services.buyer_relevance_service import (
     evaluate_company_buyers,
 )
+from app.services.buyer_ranking_service import (
+    rank_company_buyers,
+)
 from app.services.company_scoring_service import (
     score_and_save_company,
 )
@@ -65,22 +68,15 @@ def build_buyer_intelligence(
         company_id
     )
 
-    ranked_contacts = sorted(
-        contacts,
-        key=lambda contact: (
-            contact["relevance_score"]
-            if contact["relevance_score"]
-            is not None
-            else -1
-        ),
-        reverse=True,
+    ranked_contacts = rank_company_buyers(
+        contacts
     )
 
     primary_buyer = (
         ranked_contacts[0]
         if ranked_contacts
         and ranked_contacts[0][
-            "relevance_score"
+            "buyer_rank_score"
         ] > 0
         else None
     )
@@ -92,6 +88,7 @@ def build_buyer_intelligence(
             evaluated_contacts
         ),
         "contacts": contacts,
+        "ranked_contacts": ranked_contacts,
         "primary_buyer": primary_buyer,
         "new_signals": new_signals,
         "signals": signals,

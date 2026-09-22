@@ -85,3 +85,47 @@ def test_repeated_signal_workflow_is_idempotent():
     assert second["score"].intent_score == 20
     assert second["score"].total_score == 80
     assert second["score"].priority == "HIGH"
+
+
+def test_repeated_signal_research_preserves_signals_found_state():
+    from app.repositories.signal_research_repository import (
+        get_signal_research,
+    )
+
+    company = prepare_company()
+
+    first = discover_signals_and_rescore(
+        company_id=company.id,
+        provider=MockSignalProvider(),
+        provider_name="mock",
+    )
+
+    second = discover_signals_and_rescore(
+        company_id=company.id,
+        provider=MockSignalProvider(),
+        provider_name="mock",
+    )
+
+    assert first["new_signal_count"] == 2
+    assert first["total_signal_count"] == 2
+
+    assert second["new_signal_count"] == 0
+    assert second["total_signal_count"] == 2
+
+    assert (
+        second["signal_research"]["status"]
+        == "SIGNALS_FOUND"
+    )
+
+    assert (
+        second["signal_research"]["signals_found"]
+        == 2
+    )
+
+    persisted = get_signal_research(
+        company.id
+    )
+
+    assert persisted is not None
+    assert persisted["status"] == "SIGNALS_FOUND"
+    assert persisted["signals_found"] == 2

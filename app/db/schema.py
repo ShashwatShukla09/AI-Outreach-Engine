@@ -85,6 +85,9 @@ def create_tables() -> None:
                 employee_count INTEGER,
                 business_model TEXT,
 
+                description TEXT,
+                linkedin_url TEXT,
+
                 source TEXT,
                 source_url TEXT,
 
@@ -135,6 +138,20 @@ def create_tables() -> None:
             -- Evidence that may indicate timing or buying intent.
             -- =========================================================
 
+            -- Product/ICP-specific evidence-based company relevance.
+            CREATE TABLE IF NOT EXISTS company_relevance_assessments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL UNIQUE,
+                relevance_score INTEGER NOT NULL,
+                priority TEXT NOT NULL,
+                evidence_json TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (company_id)
+                    REFERENCES companies(id)
+            );
+
+
             CREATE TABLE IF NOT EXISTS signals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 company_id INTEGER NOT NULL,
@@ -150,6 +167,41 @@ def create_tables() -> None:
                 confidence REAL,
 
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (company_id)
+                    REFERENCES companies(id)
+                    ON DELETE CASCADE
+            );
+
+
+            -- =========================================================
+            -- SIGNAL RESEARCH
+            -- Tracks whether real signal research has actually run.
+            -- This prevents "not researched" from being interpreted
+            -- as "researched and no signals found".
+            -- =========================================================
+
+            CREATE TABLE IF NOT EXISTS signal_research (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL UNIQUE,
+
+                status TEXT NOT NULL
+                    CHECK (
+                        status IN (
+                            'RESEARCHED_NO_SIGNALS',
+                            'SIGNALS_FOUND'
+                        )
+                    ),
+
+                provider TEXT NOT NULL,
+                signals_found INTEGER NOT NULL DEFAULT 0,
+                notes TEXT,
+
+                researched_at TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP,
+
+                updated_at TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP,
 
                 FOREIGN KEY (company_id)
                     REFERENCES companies(id)
@@ -322,6 +374,10 @@ def create_tables() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_signals_company
             ON signals(company_id);
+
+
+            CREATE INDEX IF NOT EXISTS idx_signal_research_status
+            ON signal_research(status);
 
 
             CREATE INDEX IF NOT EXISTS idx_contacts_company

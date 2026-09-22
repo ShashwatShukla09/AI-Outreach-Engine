@@ -101,3 +101,51 @@ def test_intent_score_is_capped_at_thirty():
     )
 
     assert score == 30
+
+
+def test_signal_recency_multiplier():
+    from datetime import date
+
+    from app.services.signal_scoring_service import (
+        get_recency_multiplier,
+    )
+
+    as_of = date(2026, 9, 22)
+
+    assert get_recency_multiplier(
+        "2026-09-01",
+        as_of,
+    ) == 1.0
+
+    assert get_recency_multiplier(
+        "2026-06-01",
+        as_of,
+    ) == 0.8
+
+    assert get_recency_multiplier(
+        "2026-01-01",
+        as_of,
+    ) == 0.5
+
+    assert get_recency_multiplier(
+        "2025-11",
+        as_of,
+    ) == 0.5
+
+    assert get_recency_multiplier(
+        "2024-01-01",
+        as_of,
+    ) == 0.0
+
+
+def test_undated_legacy_signal_keeps_full_recency_weight():
+    from datetime import date
+
+    from app.services.signal_scoring_service import (
+        get_recency_multiplier,
+    )
+
+    assert get_recency_multiplier(
+        None,
+        date(2026, 9, 22),
+    ) == 1.0

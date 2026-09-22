@@ -1351,6 +1351,8 @@ document.addEventListener("click", async (event) => {
 
 let companiesLoaded = false;
 let selectedCompanyId = null;
+let companyProspects = [];
+let activeCompanyFilter = "ALL";
 
 
 function setCompanyMetric(id, value) {
@@ -1363,7 +1365,32 @@ function setCompanyMetric(id, value) {
 
 
 function getCompanyPriority(companyItem) {
-    return companyItem.score?.priority || null;
+    return (
+        companyItem.relevance?.priority ||
+        companyItem.score?.priority ||
+        null
+    );
+}
+
+
+function getFilteredCompanyProspects() {
+    if (activeCompanyFilter === "ALL") {
+        return companyProspects;
+    }
+
+    if (activeCompanyFilter === "DISQUALIFIED") {
+        return companyProspects.filter(
+            (item) =>
+                item.company.qualification_status ===
+                "DISQUALIFIED"
+        );
+    }
+
+    return companyProspects.filter(
+        (item) =>
+            item.relevance?.priority ===
+            activeCompanyFilter
+    );
 }
 
 
@@ -1403,9 +1430,20 @@ function renderCompaniesList(companies) {
         const score = item.score;
         const priority = getCompanyPriority(item);
 
-        const scoreValue = score
-            ? score.total_score
-            : "—";
+        const relevance = item.relevance;
+
+        const scoreValue = relevance
+            ? `
+                <span class="relevance-score-number">
+                    ${relevance.relevance_score}
+                </span>
+                <span class="relevance-score-max">
+                    /20
+                </span>
+            `
+            : score
+                ? `${score.total_score}/100`
+                : "—";
 
         const priorityValue = priority
             ? priority
@@ -1464,7 +1502,13 @@ async function loadCompanies() {
         }
 
         const data = await response.json();
-        const companies = data.companies || [];
+
+        const companies = (data.companies || []).filter(
+            (item) =>
+                item.company.source === "clay_csv"
+        );
+
+        companyProspects = companies;
 
         const qualified = companies.filter(
             (item) =>
@@ -1472,14 +1516,14 @@ async function loadCompanies() {
                 "QUALIFIED"
         ).length;
 
-        const highIntent = companies.filter(
+        const highPriority = companies.filter(
             (item) =>
-                item.score?.priority === "HIGH"
+                item.relevance?.priority === "HIGH"
         ).length;
 
         setCompanyMetric(
             "companies-discovered-count",
-            data.count
+            companies.length
         );
 
         setCompanyMetric(
@@ -1489,10 +1533,45 @@ async function loadCompanies() {
 
         setCompanyMetric(
             "companies-high-intent-count",
-            highIntent
+            highPriority
         );
 
-        renderCompaniesList(companies);
+        const filterCounts = {
+            ALL: companies.length,
+            HIGH: companies.filter(
+                (item) =>
+                    item.relevance?.priority === "HIGH"
+            ).length,
+            MEDIUM: companies.filter(
+                (item) =>
+                    item.relevance?.priority === "MEDIUM"
+            ).length,
+            LOW: companies.filter(
+                (item) =>
+                    item.relevance?.priority === "LOW"
+            ).length,
+            DISQUALIFIED: companies.filter(
+                (item) =>
+                    item.company.qualification_status ===
+                    "DISQUALIFIED"
+            ).length,
+        };
+
+        Object.entries(filterCounts).forEach(
+            ([filter, value]) => {
+                const element = document.getElementById(
+                    `company-filter-${filter.toLowerCase()}`
+                );
+
+                if (element) {
+                    element.textContent = value;
+                }
+            }
+        );
+
+        renderCompaniesList(
+            getFilteredCompanyProspects()
+        );
 
         companiesLoaded = true;
 
@@ -1614,9 +1693,347 @@ function renderCompanyIntelligence(data) {
 
     const company = data.company;
     const score = data.score;
+    const relevance = data.relevance;
     const buyer = data.primary_buyer;
+    const rankedBuyers = data.ranked_buyers || [];
     const signals = data.signals || [];
+    const signalResearch = data.signal_research || {
+        status: "NOT_RESEARCHED",
+        signals_found: 0,
+    };
     const outreach = data.outreach;
+
+    if (relevance && !score) {
+        const evidence = relevance.evidence || {};
+
+        const evidenceGroups = [
+            [
+                "Industry evidence",
+                evidence.industry || [],
+            ],
+            [
+                "Frontline evidence",
+                evidence.frontline || [],
+            ],
+            [
+                "Operations evidence",
+                evidence.operations || [],
+            ],
+        ];
+
+        const evidenceHtml = evidenceGroups
+            .map(([label, values]) => `
+                <div class="score-row">
+                    <div class="score-row-main">
+                        <span>${label}</span>
+
+                        <div class="score-row-right">
+                            <strong>
+                                ${
+                                    values.length
+                                        ? values.join(", ")
+                                        : "No evidence found"
+                                }
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+            `)
+            .join("");
+
+        const buyerStatus = rankedBuyers.length
+            ? `${rankedBuyers.length} MATCHED`
+            : "NOT RUN YET";
+
+        let signalStatus = "NOT RUN YET";
+
+        if (
+            signalResearch.status === "SIGNALS_FOUND"
+        ) {
+            signalStatus = `${signals.length} FOUND`;
+        } else if (
+            signalResearch.status
+            === "RESEARCHED_NO_SIGNALS"
+        ) {
+            signalStatus = "NO SIGNALS FOUND";
+        }
+
+        const signalIntelligenceHtml =
+            signalResearch.status === "SIGNALS_FOUND"
+            && signals.length
+                ? `
+                    <section class="intelligence-section">
+                        <div class="intelligence-section-title">
+                            <span>BUYING SIGNALS</span>
+
+                            <strong>
+                                ${signals.length} FOUND
+                            </strong>
+                        </div>
+
+                        <div class="score-breakdown">
+                            ${signals
+                                .map((signal) => `
+                                    <div class="score-row">
+                                        <div class="score-row-main">
+                                            <span>
+                                                ${signal.signal_type
+                                                    .replaceAll("_", " ")}
+                                            </span>
+
+                                            <div class="score-row-right">
+                                                <strong>
+                                                    ${signal.confidence}
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <small>
+                                            ${signal.title}
+                                            ${
+                                                signal.signal_date
+                                                    ? ` · ${signal.signal_date}`
+                                                    : ""
+                                            }
+                                        </small>
+                                    </div>
+                                `)
+                                .join("")}
+                        </div>
+                    </section>
+                `
+                : "";
+
+        const buyerIntelligenceHtml = buyer
+            ? `
+                <section class="intelligence-section">
+                    <div class="intelligence-section-title">
+                        <span>BUYER INTELLIGENCE</span>
+
+                        <strong>
+                            ${buyer.rank_label}
+                        </strong>
+                    </div>
+
+                    <div class="buyer-card">
+                        <div class="buyer-avatar">
+                            ${buyer.first_name.charAt(0)}
+                            ${buyer.last_name.charAt(0)}
+                        </div>
+
+                        <div class="buyer-copy">
+                            <strong>
+                                ${buyer.first_name}
+                                ${buyer.last_name}
+                            </strong>
+
+                            <span>
+                                ${buyer.job_title}
+                            </span>
+
+                            <small>
+                                ${buyer.buyer_category}
+                                · ICP match
+                                ${buyer.relevance_score}/10
+                                · Buyer rank
+                                ${buyer.buyer_rank_score}/100
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="score-breakdown">
+                        <div class="score-row">
+                            <div class="score-row-main">
+                                <span>Function fit</span>
+
+                                <div class="score-row-right">
+                                    <strong>
+                                        ${buyer.function_score} / 50
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="score-row">
+                            <div class="score-row-main">
+                                <span>Seniority</span>
+
+                                <div class="score-row-right">
+                                    <strong>
+                                        ${buyer.seniority_score} / 30
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="score-row">
+                            <div class="score-row-main">
+                                <span>Title specificity</span>
+
+                                <div class="score-row-right">
+                                    <strong>
+                                        ${buyer.specificity_score} / 20
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${
+                        rankedBuyers.length > 1
+                            ? `
+                                <div class="score-breakdown">
+                                    ${rankedBuyers
+                                        .slice(1)
+                                        .map((matchedBuyer) => `
+                                            <div class="score-row">
+                                                <div class="score-row-main">
+                                                    <span>
+                                                        ${matchedBuyer.first_name}
+                                                        ${matchedBuyer.last_name}
+                                                    </span>
+
+                                                    <div class="score-row-right">
+                                                        <strong>
+                                                            ${matchedBuyer.buyer_rank_score}
+                                                            / 100
+                                                        </strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `)
+                                        .join("")}
+                                </div>
+                            `
+                            : ""
+                    }
+                </section>
+            `
+            : "";
+
+        panel.innerHTML = `
+            <div class="company-detail-header">
+                <div>
+                    <p class="eyebrow">
+                        ${company.market}
+                        · ${company.source || "Unknown source"}
+                    </p>
+
+                    <h3>${company.name}</h3>
+
+                    <p>
+                        ${company.country || "Unknown"}
+                        ·
+                        ${company.industry || "Unknown industry"}
+                        ·
+                        ${company.employee_count || "—"} employees
+                    </p>
+                </div>
+
+                <div class="company-total-score">
+                    <strong>
+                        ${relevance.priority}
+                    </strong>
+
+                    <span>
+                        FIT
+                    </span>
+                </div>
+            </div>
+
+            <section class="intelligence-section">
+                <div class="intelligence-section-title">
+                    <span>PRE-ENRICHMENT FIT</span>
+
+                    <strong>
+                        ${relevance.priority}
+                    </strong>
+                </div>
+
+                <div class="score-breakdown">
+                    ${evidenceHtml}
+                </div>
+            </section>
+
+            <section class="intelligence-section">
+                <div class="intelligence-section-title">
+                    <span>PIPELINE STATUS</span>
+                </div>
+
+                <div class="score-breakdown">
+                    <div class="score-row">
+                        <div class="score-row-main">
+                            <span>ICP qualification</span>
+
+                            <div class="score-row-right">
+                                <strong>
+                                    ${company.qualification_status}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="score-row">
+                        <div class="score-row-main">
+                            <span>Company source</span>
+
+                            <div class="score-row-right">
+                                <strong>
+                                    ${company.source || "Unknown"}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="score-row">
+                        <div class="score-row-main">
+                            <span>Buyer intelligence</span>
+
+                            <div class="score-row-right">
+                                <strong>
+                                    ${buyerStatus}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="score-row">
+                        <div class="score-row-main">
+                            <span>Buying signals</span>
+
+                            <div class="score-row-right">
+                                <strong>
+                                    ${signalStatus}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            ${buyerIntelligenceHtml}
+
+            ${signalIntelligenceHtml}
+
+            <section class="intelligence-section">
+                <div class="intelligence-section-title">
+                    <span>NEXT STEP</span>
+                </div>
+
+                <div class="intelligence-empty">
+                    ${
+                        relevance.priority === "HIGH"
+                            ? "Prioritised for buyer and signal enrichment."
+                            : relevance.priority === "MEDIUM"
+                                ? "Keep for secondary review before enrichment."
+                                : "Hold until stronger company-level evidence is available."
+                    }
+                </div>
+            </section>
+        `;
+
+        return;
+    }
 
     if (!score) {
         panel.innerHTML = `
@@ -1754,13 +2171,38 @@ function renderCompanyIntelligence(data) {
         }
     ).join("");
 
+    let scoredSignalStatus = "NOT RUN YET";
+
+    if (
+        signalResearch.status === "SIGNALS_FOUND"
+    ) {
+        scoredSignalStatus = `${signals.length} FOUND`;
+    } else if (
+        signalResearch.status
+        === "RESEARCHED_NO_SIGNALS"
+    ) {
+        scoredSignalStatus = "NO SIGNALS FOUND";
+    }
+
     const signalsHtml = signals.length
         ? signals.map((signal) => `
             <article class="signal-card">
                 <div>
+                    <small>
+                        ${signal.signal_type
+                            .replaceAll("_", " ")}
+                        ${
+                            signal.signal_date
+                                ? ` · ${signal.signal_date}`
+                                : ""
+                        }
+                    </small>
+
                     <strong>${signal.title}</strong>
 
-                    <p>${signal.description}</p>
+                    <p>
+                        ${signal.description || ""}
+                    </p>
                 </div>
 
                 <span class="signal-confidence">
@@ -1770,9 +2212,18 @@ function renderCompanyIntelligence(data) {
         `).join("")
         : `
             <div class="intelligence-empty">
-                No active buying signals detected.
+                ${
+                    signalResearch.status
+                    === "RESEARCHED_NO_SIGNALS"
+                        ? "Research completed. No verified buying signals found."
+                        : "Signal research has not been run yet."
+                }
             </div>
         `;
+
+    const scoredBuyerStatus = rankedBuyers.length
+        ? `${rankedBuyers.length} MATCHED`
+        : "NOT RUN YET";
 
     const buyerHtml = buyer
         ? `
@@ -1791,15 +2242,48 @@ function renderCompanyIntelligence(data) {
                     <span>${buyer.job_title}</span>
 
                     <small>
-                        ${buyer.relevance_score} / 10 relevance
-                        · ${data.contacts_count} contacts found
+                        ${buyer.buyer_category}
+                        · ICP match
+                        ${buyer.relevance_score}/10
+                        · Buyer rank
+                        ${buyer.buyer_rank_score}/100
                     </small>
                 </div>
             </div>
+
+            ${
+                rankedBuyers.length > 1
+                    ? `
+                        <div class="score-breakdown">
+                            ${rankedBuyers
+                                .slice(1)
+                                .map((matchedBuyer) => `
+                                    <div class="score-row">
+                                        <div class="score-row-main">
+                                            <span>
+                                                ${matchedBuyer.first_name}
+                                                ${matchedBuyer.last_name}
+                                            </span>
+
+                                            <div class="score-row-right">
+                                                <strong>
+                                                    ${matchedBuyer.buyer_rank_score}
+                                                    / 100
+                                                </strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `)
+                                .join("")}
+                        </div>
+                    `
+                    : ""
+            }
         `
         : `
             <div class="intelligence-empty">
-                No relevant buyer identified yet.
+                Buyer intelligence has not identified
+                an ICP-matching contact yet.
             </div>
         `;
 
@@ -2000,7 +2484,7 @@ function renderCompanyIntelligence(data) {
         <section class="intelligence-section">
             <div class="intelligence-section-title">
                 <span>BUYING SIGNALS</span>
-                <strong>${signals.length}</strong>
+                <strong>${scoredSignalStatus}</strong>
             </div>
 
             <div class="signals-list">
@@ -2010,7 +2494,8 @@ function renderCompanyIntelligence(data) {
 
         <section class="intelligence-section">
             <div class="intelligence-section-title">
-                <span>PRIMARY BUYER</span>
+                <span>BUYER INTELLIGENCE</span>
+                <strong>${scoredBuyerStatus}</strong>
             </div>
 
             ${buyerHtml}
@@ -2328,4 +2813,46 @@ document.addEventListener("click", async (event) => {
     if (refreshButton) {
         await loadOutreachWorkspace();
     }
+});
+
+
+// Company prospect filters
+
+document.addEventListener("click", async (event) => {
+    const filterButton = event.target.closest(
+        "[data-company-filter]"
+    );
+
+    if (!filterButton) {
+        return;
+    }
+
+    activeCompanyFilter =
+        filterButton.dataset.companyFilter;
+
+    document.querySelectorAll(
+        "[data-company-filter]"
+    ).forEach((button) => {
+        button.classList.toggle(
+            "active",
+            button === filterButton
+        );
+    });
+
+    const filtered =
+        getFilteredCompanyProspects();
+
+    renderCompaniesList(filtered);
+
+    if (!filtered.length) {
+        selectedCompanyId = null;
+        return;
+    }
+
+    selectedCompanyId =
+        filtered[0].company.id;
+
+    await loadCompanyIntelligence(
+        selectedCompanyId
+    );
 });

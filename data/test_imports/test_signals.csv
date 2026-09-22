@@ -1,0 +1,4 @@
+Company Name,Signal Type,Title,Description,Source,Source URL,Signal Date,Confidence
+Test Logistics,FACILITY_EXPANSION,New fulfilment hub opened,Company opened a new fulfilment hub.,Test News,https://example.com/hub,2026-09-01,HIGH
+Test Logistics,FRONTLINE_HIRING,Warehouse hiring expansion,Company is recruiting warehouse workers.,Test Careers,https://example.com/jobs,2026-09-10,MEDIUM
+Other Company,OPERATIONAL_EXPANSION,Expanded delivery network,Company expanded its delivery network.,Test News,https://example.com/network,2026-09-05,HIGH

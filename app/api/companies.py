@@ -1,14 +1,30 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
 
 from app.db.database import get_connection
+from app.providers.discovery.mock_provider import (
+    MockCompanyDiscoveryProvider,
+)
+from app.providers.enrichment.mock_provider import (
+    MockCompanyEnrichmentProvider,
+)
+from app.providers.signals.mock_provider import (
+    MockSignalProvider,
+)
 from app.repositories.company_repository import (
     get_company_by_id,
 )
 from app.repositories.company_score_repository import (
     get_company_score,
 )
+from app.repositories.company_relevance_repository import (
+    get_company_relevance_assessment,
+)
 from app.repositories.contact_repository import (
     get_company_contacts,
+)
+from app.services.buyer_ranking_service import (
+    rank_company_buyers,
 )
 from app.repositories.enrichment_repository import (
     get_company_enrichment_jobs,
@@ -16,6 +32,20 @@ from app.repositories.enrichment_repository import (
 from app.repositories.signal_repository import (
     get_company_signals,
 )
+from app.repositories.signal_research_repository import (
+    get_signal_research,
+)
+from app.services.company_discovery_service import (
+    discover_and_save_companies,
+)
+from app.workflows.company_intelligence_workflow import (
+    process_company_batch,
+)
+
+
+class CompanyDiscoveryRequest(BaseModel):
+    icp_id: int = Field(..., ge=1)
+    limit: int = Field(default=100, ge=1, le=1000)
 
 
 router = APIRouter(
@@ -57,10 +87,39 @@ def build_company_intelligence(company: dict):
     company_id = company["id"]
 
     score = get_company_score(company_id)
+    relevance = get_company_relevance_assessment(
+        company_id
+    )
     signals = get_company_signals(company_id)
+
+    signal_research = get_signal_research(
+        company_id
+    )
+
+    if signal_research is None:
+        signal_research = {
+            "status": "NOT_RESEARCHED",
+            "provider": None,
+            "signals_found": 0,
+            "notes": None,
+            "researched_at": None,
+            "updated_at": None,
+        }
+
     contacts = get_company_contacts(company_id)
 
-    primary_buyer = contacts[0] if contacts else None
+    ranked_buyers = rank_company_buyers(
+        contacts
+    )
+
+    primary_buyer = (
+        ranked_buyers[0]
+        if ranked_buyers
+        and ranked_buyers[0][
+            "buyer_rank_score"
+        ] > 0
+        else None
+    )
 
     outreach = get_company_outreach_status(
         company_id
@@ -73,8 +132,11 @@ def build_company_intelligence(company: dict):
     return {
         "company": company,
         "score": score,
+        "relevance": relevance,
         "signals": signals,
+        "signal_research": signal_research,
         "primary_buyer": primary_buyer,
+        "ranked_buyers": ranked_buyers,
         "contacts_count": len(contacts),
         "outreach": outreach,
         "enrichment_jobs": enrichment_jobs,
@@ -108,6 +170,58 @@ def list_companies():
             build_company_intelligence(company)
             for company in companies
         ],
+    }
+
+
+@router.post(
+    "/discover",
+    status_code=status.HTTP_201_CREATED,
+)
+def discover_companies(
+    request: CompanyDiscoveryRequest,
+):
+    provider = MockCompanyDiscoveryProvider()
+
+    try:
+        companies = discover_and_save_companies(
+            icp_id=request.icp_id,
+            provider=provider,
+            limit=request.limit,
+        )
+
+    except ValueError as exc:
+        message = str(exc)
+
+        if message == "ICP not found":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=message,
+            ) from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=message,
+        ) from exc
+
+    processing = process_company_batch(
+        company_ids=[
+            company.id
+            for company in companies
+        ],
+        enrichment_provider=(
+            MockCompanyEnrichmentProvider()
+        ),
+        enrichment_provider_name="mock",
+        signal_provider=MockSignalProvider(),
+    )
+
+    return {
+        "discovered_count": len(companies),
+        "companies": [
+            company.model_dump()
+            for company in companies
+        ],
+        "processing": processing,
     }
 
 
