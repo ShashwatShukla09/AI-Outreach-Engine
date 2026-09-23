@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.config import get_clay_company_csv_path
 from app.db.database import get_connection
 from app.providers.discovery.mock_provider import (
     MockCompanyDiscoveryProvider,
@@ -80,13 +81,14 @@ def get_replenishment_discovery_provider(
         return MockCompanyDiscoveryProvider()
 
     if normalised_source == "clay_csv":
-        if not csv_path or not csv_path.strip():
-            raise ValueError(
-                "csv_path is required for clay_csv source."
-            )
+        configured_path = (
+            csv_path.strip()
+            if csv_path and csv_path.strip()
+            else str(get_clay_company_csv_path())
+        )
 
         return ClayCSVCompanyDiscoveryProvider(
-            csv_path.strip()
+            configured_path
         )
 
     raise ValueError(

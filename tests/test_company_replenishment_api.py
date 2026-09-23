@@ -193,25 +193,35 @@ def test_replenishment_provider_selects_clay_csv(
     assert provider.csv_path == csv_path
 
 
-def test_clay_csv_source_requires_path():
+
+def test_clay_csv_source_uses_configured_path(
+    monkeypatch,
+):
+    from pathlib import Path
+
     from app.api.companies import (
         get_replenishment_discovery_provider,
     )
+    from app.providers.discovery.clay_csv_provider import (
+        ClayCSVCompanyDiscoveryProvider,
+    )
 
-    try:
-        get_replenishment_discovery_provider(
-            source="clay_csv"
-        )
-    except ValueError as exc:
-        assert (
-            str(exc)
-            == "csv_path is required for clay_csv source."
-        )
-    else:
-        raise AssertionError(
-            "Expected missing csv_path to fail."
-        )
+    monkeypatch.setenv(
+        "CLAY_COMPANY_CSV_PATH",
+        "/tmp/configured-clay-source.csv",
+    )
 
+    provider = get_replenishment_discovery_provider(
+        source="clay_csv"
+    )
+
+    assert isinstance(
+        provider,
+        ClayCSVCompanyDiscoveryProvider,
+    )
+    assert provider.csv_path == Path(
+        "/tmp/configured-clay-source.csv"
+    )
 
 def test_replenishment_provider_rejects_unknown_source():
     from app.api.companies import (
@@ -298,8 +308,55 @@ def test_replenishment_api_processes_clay_csv_source(
     assert second_data["processed"] == 0
 
 
-def test_replenishment_api_requires_clay_csv_path():
+
+def test_replenishment_api_uses_configured_clay_path(
+    tmp_path,
+    monkeypatch,
+):
+    import csv
+
     icp = create_replenishment_icp()
+
+    csv_path = tmp_path / "configured-clay.csv"
+
+    with csv_path.open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=[
+                "Name",
+                "Domain",
+                "Country",
+                "Industry",
+                "Size",
+                "Description",
+                "LinkedIn URL",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "Name": "Configured Prospect",
+                "Domain": (
+                    "configured-prospect.example.com"
+                ),
+                "Country": "India",
+                "Industry": "E-commerce",
+                "Size": "51-200",
+                "Description": (
+                    "Configured Clay source test."
+                ),
+                "LinkedIn URL": "",
+            }
+        )
+
+    monkeypatch.setenv(
+        "CLAY_COMPANY_CSV_PATH",
+        str(csv_path),
+    )
 
     response = client.post(
         "/api/companies/replenish",
@@ -309,14 +366,12 @@ def test_replenishment_api_requires_clay_csv_path():
         },
     )
 
-    assert response.status_code == 409
+    assert response.status_code == 200
 
-    assert response.json() == {
-        "detail": (
-            "csv_path is required for clay_csv source."
-        )
-    }
+    data = response.json()
 
+    assert data["new_accounts"] == 1
+    assert data["processed"] == 1
 
 def test_replenishment_api_rejects_unknown_source():
     icp = create_replenishment_icp()

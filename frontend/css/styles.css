@@ -2698,3 +2698,54 @@ body.review-open {
         grid-template-columns: 1fr;
     }
 }
+
+
+/* Company replenishment control */
+
+.companies-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.replenish-companies-button {
+    appearance: none;
+    border: 0;
+    border-radius: 999px;
+
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 8px 11px;
+
+    background: var(--black);
+    color: var(--cream);
+
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+
+    cursor: pointer;
+}
+
+.replenish-companies-button:hover {
+    transform: translateY(-1px);
+}
+
+.replenish-companies-button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+    transform: none;
+}
+
+.replenish-companies-button.is-loading .replenish-icon {
+    animation: replenish-spin 0.8s linear infinite;
+}
+
+@keyframes replenish-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

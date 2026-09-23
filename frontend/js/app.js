@@ -3048,3 +3048,159 @@ document.addEventListener("click", async (event) => {
         selectedCompanyId
     );
 });
+
+
+// COMPANY PROSPECT REPLENISHMENT
+
+let companiesReplenishing = false;
+
+
+function setReplenishmentButtonState(
+    isLoading,
+    label = null
+) {
+    const button = document.getElementById(
+        "replenish-companies-button"
+    );
+
+    if (!button) {
+        return;
+    }
+
+    button.disabled = isLoading;
+
+    button.classList.toggle(
+        "is-loading",
+        isLoading
+    );
+
+    const labelElement = button.querySelector(
+        "span:last-child"
+    );
+
+    if (labelElement) {
+        labelElement.textContent = (
+            label ||
+            (isLoading ? "Checking..." : "Replenish")
+        );
+    }
+}
+
+
+function getReplenishmentResultLabel(result) {
+    const newAccounts = result.new_accounts || 0;
+    const qualified = result.qualified || 0;
+    const needsReview = result.needs_review || 0;
+
+    if (newAccounts === 0) {
+        return "Up to date";
+    }
+
+    if (needsReview > 0) {
+        return (
+            `${newAccounts} new · ` +
+            `${qualified} qualified · ` +
+            `${needsReview} review`
+        );
+    }
+
+    return (
+        `${newAccounts} new · ` +
+        `${qualified} qualified`
+    );
+}
+
+
+async function replenishCompanies() {
+    if (companiesReplenishing) {
+        return;
+    }
+
+    companiesReplenishing = true;
+    setReplenishmentButtonState(
+        true,
+        "Checking..."
+    );
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/companies/replenish`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    icp_id: 3,
+                    source: "clay_csv",
+                    limit: 1000,
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            let message = (
+                `Replenishment failed: ${response.status}`
+            );
+
+            try {
+                const errorData = await response.json();
+
+                if (errorData.detail) {
+                    message = errorData.detail;
+                }
+            } catch (parseError) {
+                // Keep the HTTP fallback message.
+            }
+
+            throw new Error(message);
+        }
+
+        const result = await response.json();
+
+        selectedCompanyId = null;
+
+        await loadCompanies();
+
+        setReplenishmentButtonState(
+            false,
+            getReplenishmentResultLabel(result)
+        );
+
+        window.setTimeout(() => {
+            setReplenishmentButtonState(
+                false,
+                "Replenish"
+            );
+        }, 5000);
+
+    } catch (error) {
+        console.error(
+            "Could not replenish companies:",
+            error
+        );
+
+        setReplenishmentButtonState(
+            false,
+            "Try again"
+        );
+
+        window.setTimeout(() => {
+            setReplenishmentButtonState(
+                false,
+                "Replenish"
+            );
+        }, 5000);
+
+    } finally {
+        companiesReplenishing = false;
+    }
+}
+
+
+document
+    .getElementById("replenish-companies-button")
+    ?.addEventListener(
+        "click",
+        replenishCompanies
+    );
