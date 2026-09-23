@@ -1055,23 +1055,21 @@ button:active {
     white-space: pre-wrap;
 }
 
-.review-sheet-actions {
-    position: sticky;
-    bottom: 0;
+.review-sheet-footer {
+    flex: 0 0 auto;
 
+    padding: 14px 30px 22px;
+
+    background: var(--cream-soft);
+}
+
+.review-sheet-actions {
     display: grid;
     grid-template-columns: 1fr 1fr 1.25fr;
     gap: 8px;
 
-    margin-top: 22px;
-    padding-top: 18px;
-    padding-bottom: 2px;
-
-    background: linear-gradient(
-        to bottom,
-        transparent,
-        var(--cream-soft) 22%
-    );
+    margin: 0;
+    padding: 0;
 }
 
 .sheet-action {
@@ -2617,4 +2615,86 @@ body.review-open {
     line-height: 1;
     letter-spacing: 0.02em;
     opacity: 0.48;
+}
+
+/* OUTREACH REVIEW INTELLIGENCE */
+
+.review-intelligence-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    margin-bottom: 12px;
+}
+
+.review-intelligence-grid .review-info-card {
+    margin-bottom: 0;
+}
+
+.review-intelligence-title {
+    display: block;
+
+    margin-bottom: 6px;
+
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+.review-score-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-top: 14px;
+}
+
+.review-score-line strong {
+    font-size: 13px;
+}
+
+.review-score-line span {
+    padding: 5px 8px;
+
+    border-radius: 999px;
+
+    background: rgba(0, 0, 0, 0.06);
+
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.review-evidence-list {
+    display: grid;
+    gap: 8px;
+}
+
+.review-evidence-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    padding: 11px 12px;
+
+    border-radius: 14px;
+
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.review-evidence-item strong {
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.review-evidence-item span {
+    color: var(--muted);
+
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+    .review-intelligence-grid {
+        grid-template-columns: 1fr;
+    }
 }

@@ -237,6 +237,24 @@ async function openOutreachReview(outreachId) {
 
         const data = await response.json();
 
+        let companyIntelligence = null;
+
+        try {
+            const companyResponse = await fetch(
+                `${API_BASE_URL}/api/companies/${data.outreach.company_id}`
+            );
+
+            if (companyResponse.ok) {
+                companyIntelligence =
+                    await companyResponse.json();
+            }
+        } catch (companyError) {
+            console.error(
+                "Could not load company intelligence:",
+                companyError
+            );
+        }
+
         if (data.outreach.status === "REJECTED") {
             if (eyebrow) {
                 eyebrow.textContent = "OUTREACH HISTORY";
@@ -249,7 +267,8 @@ async function openOutreachReview(outreachId) {
 
         renderOutreachReview(
             data.outreach,
-            data.review
+            data.review,
+            companyIntelligence
         );
 
     } catch (error) {
@@ -266,14 +285,107 @@ async function openOutreachReview(outreachId) {
     }
 }
 
-function renderOutreachReview(outreach, review) {
+function renderOutreachReview(
+    outreach,
+    review,
+    companyIntelligence = null
+) {
     const content = document.getElementById(
         "review-sheet-content"
     );
 
-    if (!content) {
+    const footer = document.getElementById(
+        "review-sheet-footer"
+    );
+
+    if (!content || !footer) {
         return;
     }
+
+    const intelligence =
+        companyIntelligence || {};
+
+    const company =
+        intelligence.company || {};
+
+    const score =
+        intelligence.score || null;
+
+    const primaryBuyer =
+        intelligence.primary_buyer || null;
+
+    const signals =
+        intelligence.signals || [];
+
+    const signalResearch =
+        intelligence.signal_research || {
+            status: "NOT_RESEARCHED",
+            signals_found: 0
+        };
+
+    const companyName =
+        company.name || "Company";
+
+    const industry =
+        company.industry || "Industry not available";
+
+    const country =
+        company.country || "Market not available";
+
+    const buyerName = primaryBuyer
+        ? `${primaryBuyer.first_name || ""} ${
+            primaryBuyer.last_name || ""
+        }`.trim()
+        : "No ranked buyer available";
+
+    const buyerTitle = primaryBuyer
+        ? (
+            primaryBuyer.job_title ||
+            "Title not available"
+        )
+        : "";
+
+    const buyerRank = primaryBuyer
+        ? primaryBuyer.buyer_rank_score
+        : null;
+
+    const signalCards = signals.length
+        ? signals.slice(0, 3).map(
+            (signal) => `
+                <div class="review-evidence-item">
+                    <strong>
+                        ${escapeHtml(
+                            signal.title ||
+                            signal.signal_type
+                        )}
+                    </strong>
+
+                    <span>
+                        ${escapeHtml(
+                            signal.signal_date ||
+                            "Date unavailable"
+                        )}
+                        ·
+                        ${escapeHtml(
+                            signal.confidence ||
+                            "UNKNOWN"
+                        )}
+                    </span>
+                </div>
+            `
+        ).join("")
+        : `
+            <div class="review-evidence-item">
+                <strong>
+                    ${
+                        signalResearch.status ===
+                        "RESEARCHED_NO_SIGNALS"
+                            ? "No verified signals found"
+                            : "Signal research not run yet"
+                    }
+                </strong>
+            </div>
+        `;
 
     content.innerHTML = `
         <div class="sheet-status-row">
@@ -296,9 +408,87 @@ function renderOutreachReview(outreach, review) {
             )}
         </h4>
 
+        <div class="review-intelligence-grid">
+            <section class="review-info-card">
+                <span class="review-field-label">
+                    WHY THIS COMPANY?
+                </span>
+
+                <strong class="review-intelligence-title">
+                    ${escapeHtml(companyName)}
+                </strong>
+
+                <p>
+                    ${escapeHtml(industry)}
+                    ·
+                    ${escapeHtml(country)}
+                </p>
+
+                ${
+                    score
+                        ? `
+                            <div class="review-score-line">
+                                <strong>
+                                    ${score.total_score}/100
+                                </strong>
+                                <span>
+                                    ${escapeHtml(
+                                        score.priority
+                                    )}
+                                </span>
+                            </div>
+                        `
+                        : ""
+                }
+            </section>
+
+            <section class="review-info-card">
+                <span class="review-field-label">
+                    WHY THIS BUYER?
+                </span>
+
+                <strong class="review-intelligence-title">
+                    ${escapeHtml(buyerName)}
+                </strong>
+
+                ${
+                    buyerTitle
+                        ? `
+                            <p>
+                                ${escapeHtml(buyerTitle)}
+                            </p>
+                        `
+                        : ""
+                }
+
+                ${
+                    buyerRank !== null
+                        ? `
+                            <div class="review-score-line">
+                                <strong>
+                                    ${buyerRank}/100
+                                </strong>
+                                <span>BUYER RANK</span>
+                            </div>
+                        `
+                        : ""
+                }
+            </section>
+        </div>
+
+        <section class="review-info-card">
+            <span class="review-field-label">
+                WHY NOW?
+            </span>
+
+            <div class="review-evidence-list">
+                ${signalCards}
+            </div>
+        </section>
+
         <section class="review-info-card reason-card">
             <span class="review-field-label">
-                WHY THIS BUYER?
+                INTERNAL REASONING
             </span>
 
             <p>
@@ -331,6 +521,9 @@ function renderOutreachReview(outreach, review) {
             )}</p>
         </section>
 
+    `;
+
+    footer.innerHTML = `
         <div class="review-sheet-actions">
             <button
                 class="sheet-action reject"
@@ -633,9 +826,8 @@ async function saveOutreachEdit(outreachId) {
 
         await refreshOutreachData();
 
-        renderOutreachReview(
-            data.outreach,
-            data.review
+        await openOutreachReview(
+            outreachId
         );
 
     } catch (error) {
