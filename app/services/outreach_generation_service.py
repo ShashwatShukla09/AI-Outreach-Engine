@@ -1,3 +1,5 @@
+import json
+
 from app.repositories.account_research_repository import (
     get_account_research,
 )
@@ -11,6 +13,60 @@ from app.repositories.signal_repository import (
     get_company_signals,
 )
 from app.schemas.outreach import OutreachDraft
+from app.services.buyer_ranking_service import (
+    rank_company_buyers,
+)
+
+
+def _load_json_list(
+    value,
+):
+    if not value:
+        return []
+
+    if isinstance(value, list):
+        return value
+
+    try:
+        parsed = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return []
+
+    return parsed if isinstance(parsed, list) else []
+
+
+def _signal_copy(
+    signal,
+):
+    signal_type = signal["signal_type"]
+    title = signal["title"]
+
+    if signal_type == "WORKFORCE_TRAINING":
+        return (
+            f'the training work described as "{title}"'
+        )
+
+    if signal_type == "OPERATIONAL_EXPANSION":
+        return (
+            f'the operations update described as "{title}"'
+        )
+
+    if signal_type == "FACILITY_EXPANSION":
+        return (
+            f'the facility update described as "{title}"'
+        )
+
+    if signal_type == "FRONTLINE_HIRING":
+        return (
+            f'the frontline hiring update described as "{title}"'
+        )
+
+    if signal_type == "SAFETY_COMPLIANCE":
+        return (
+            f'the safety or compliance update described as "{title}"'
+        )
+
+    return title
 
 
 def generate_outreach_draft(
@@ -34,85 +90,117 @@ def generate_outreach_draft(
         company_id
     )
 
-    relevant_contacts = [
-        contact
-        for contact in contacts
-        if (
-            contact["relevance_score"]
-            is not None
-            and contact["relevance_score"] > 0
-        )
+    ranked_buyers = [
+        buyer
+        for buyer in rank_company_buyers(contacts)
+        if buyer["buyer_rank_score"] > 0
     ]
 
-    if not relevant_contacts:
+    if not ranked_buyers:
         raise ValueError(
             "No relevant buyer found for outreach."
         )
 
-    primary_buyer = max(
-        relevant_contacts,
-        key=lambda contact: (
-            contact["relevance_score"]
-        ),
-    )
+    primary_buyer = ranked_buyers[0]
 
     signals = get_company_signals(
         company_id
     )
 
-    signal_titles = [
-        signal["title"]
-        for signal in signals
-    ]
+    why_company = _load_json_list(
+        research.get("why_company")
+    )
 
-    if signal_titles:
-        timing_context = (
-            ", and ".join(signal_titles[:2])
-        )
-    else:
-        timing_context = (
-            "your current growth"
-        )
+    why_now = _load_json_list(
+        research.get("why_now")
+    )
 
-    first_name = primary_buyer[
-        "first_name"
-    ]
+    pain_points = _load_json_list(
+        research.get("pain_points")
+    )
 
-    job_title = primary_buyer[
-        "job_title"
-    ]
-
+    first_name = primary_buyer["first_name"]
+    job_title = primary_buyer["job_title"]
     company_name = company["name"]
 
     subject = (
-        f"{company_name} support operations"
+        f"{company_name} frontline training"
     )
+
+    if signals:
+        signal_references = [
+            _signal_copy(signal)
+            for signal in signals[:2]
+        ]
+
+        if len(signal_references) == 1:
+            timing_context = signal_references[0]
+        else:
+            timing_context = (
+                f"{signal_references[0]}, alongside "
+                f"{signal_references[1]}"
+            )
+
+        timing_line = (
+            f"I was looking into {company_name}'s "
+            f"operations and came across "
+            f"{timing_context}."
+        )
+    else:
+        timing_line = (
+            f"I came across {company_name} while "
+            "researching operational teams where "
+            "frontline training and SOP communication "
+            "matter."
+        )
 
     message_body = (
         f"Hi {first_name},\n\n"
-        f"I came across {company_name} while "
-        f"researching teams in "
-        f'{company["industry"] or "your space"}. '
-        f"I noticed {timing_context}.\n\n"
+        f"{timing_line}\n\n"
         f"Given your role as {job_title}, I thought "
-        "this might be relevant. We're exploring "
-        "ways AI can reduce repetitive support work "
-        "and help growing teams handle customer "
-        "requests more efficiently.\n\n"
-        "Would it be useful if I sent over a short "
-        "example of how the workflow could work?\n\n"
+        "this might be relevant. Clearlyy turns SOPs, "
+        "manuals and training material into short, "
+        "accessible videos for distributed frontline "
+        "teams.\n\n"
+        "Thought there could be an interesting use "
+        f"case at {company_name} around communicating "
+        "process updates and operational training "
+        "consistently across teams.\n\n"
+        f"Worth sending over a short example tailored "
+        f"to {company_name}?\n\n"
         "Best,\n"
         "Shashwat"
+    )
+
+    evidence_parts = []
+
+    if why_company:
+        evidence_parts.append(
+            f"Company fit: {why_company[0]}"
+        )
+
+    if why_now and signals:
+        evidence_parts.append(
+            f"Timing evidence: {why_now[0]}"
+        )
+
+    if pain_points:
+        evidence_parts.append(
+            f"Use-case hypothesis: {pain_points[0]}"
+        )
+
+    evidence_summary = " ".join(
+        evidence_parts
     )
 
     personalisation_reason = (
         f"Selected {primary_buyer['first_name']} "
         f"{primary_buyer['last_name']} because "
-        f"{job_title} matched an approved ICP buyer "
-        f"category with relevance score "
-        f"{primary_buyer['relevance_score']}/10. "
-        f"Timing context used: {timing_context}."
-    )
+        f"{job_title} ranked highest among the "
+        f"identified ICP buyers at "
+        f"{primary_buyer['buyer_rank_score']}/100. "
+        f"{evidence_summary}"
+    ).strip()
 
     return OutreachDraft(
         company_id=company_id,
