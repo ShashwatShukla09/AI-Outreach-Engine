@@ -41,6 +41,9 @@ from app.services.company_discovery_service import (
 from app.workflows.company_intelligence_workflow import (
     process_company_batch,
 )
+from app.workflows.company_replenishment_workflow import (
+    replenish_companies,
+)
 
 
 class CompanyDiscoveryRequest(BaseModel):
@@ -171,6 +174,44 @@ def list_companies():
             for company in companies
         ],
     }
+
+
+@router.post(
+    "/replenish",
+    status_code=status.HTTP_200_OK,
+)
+def replenish_company_pipeline(
+    request: CompanyDiscoveryRequest,
+):
+    try:
+        result = replenish_companies(
+            icp_id=request.icp_id,
+            discovery_provider=(
+                MockCompanyDiscoveryProvider()
+            ),
+            enrichment_provider=(
+                MockCompanyEnrichmentProvider()
+            ),
+            enrichment_provider_name="mock",
+            signal_provider=MockSignalProvider(),
+            limit=request.limit,
+        )
+
+    except ValueError as exc:
+        message = str(exc)
+
+        if message == "ICP not found":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=message,
+            ) from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=message,
+        ) from exc
+
+    return result
 
 
 @router.post(
