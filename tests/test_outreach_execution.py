@@ -112,16 +112,19 @@ def test_approved_outreach_can_be_executed():
         draft["id"]
     )
 
-    assert len(events) == 2
+    assert len(events) == 3
 
-    assert events[0]["event_type"] == (
-        "SEND_ATTEMPTED"
-    )
-
-    assert events[1]["event_type"] == "SENT"
+    assert [
+        event["event_type"]
+        for event in events
+    ] == [
+        "APPROVED",
+        "SEND_ATTEMPTED",
+        "SENT",
+    ]
 
     sent_data = json.loads(
-        events[1]["event_data"]
+        events[2]["event_data"]
     )
 
     assert sent_data["provider"] == "mock"

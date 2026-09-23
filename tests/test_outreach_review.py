@@ -157,3 +157,67 @@ def test_approved_message_cannot_be_rejected():
         reject_outreach_message(
             draft["id"]
         )
+
+
+def test_edit_creates_audit_event():
+    from app.repositories.outreach_event_repository import (
+        get_outreach_events,
+    )
+
+    draft = prepare_draft()
+
+    edit_outreach(
+        outreach_id=draft["id"],
+        edit=OutreachEdit(
+            subject="Updated NovaCart idea",
+            message_body=(
+                "Hi Priya,\n\n"
+                "Updated outreach message."
+            ),
+        ),
+    )
+
+    events = get_outreach_events(
+        draft["id"]
+    )
+
+    assert len(events) == 1
+    assert events[0]["event_type"] == "EDITED"
+
+
+def test_approval_creates_audit_event():
+    from app.repositories.outreach_event_repository import (
+        get_outreach_events,
+    )
+
+    draft = prepare_draft()
+
+    approve_outreach_message(
+        draft["id"]
+    )
+
+    events = get_outreach_events(
+        draft["id"]
+    )
+
+    assert len(events) == 1
+    assert events[0]["event_type"] == "APPROVED"
+
+
+def test_rejection_creates_audit_event():
+    from app.repositories.outreach_event_repository import (
+        get_outreach_events,
+    )
+
+    draft = prepare_draft()
+
+    reject_outreach_message(
+        draft["id"]
+    )
+
+    events = get_outreach_events(
+        draft["id"]
+    )
+
+    assert len(events) == 1
+    assert events[0]["event_type"] == "REJECTED"
