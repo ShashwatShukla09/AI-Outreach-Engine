@@ -37,11 +37,16 @@ def qualify_enrich_requalify(
         provider_name=provider_name,
     )
 
+    enriched = any(
+        updated_company.get(field) is not None
+        for field in initial_result.missing_fields
+    )
+
     final_result = qualify_company(company_id)
 
     return {
         "initial_qualification": initial_result,
-        "enriched": True,
+        "enriched": enriched,
         "updated_company": updated_company,
         "final_qualification": final_result,
     }

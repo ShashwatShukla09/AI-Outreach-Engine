@@ -5,8 +5,14 @@ from app.db.database import get_connection
 from app.providers.discovery.mock_provider import (
     MockCompanyDiscoveryProvider,
 )
+from app.providers.discovery.clay_csv_provider import (
+    ClayCSVCompanyDiscoveryProvider,
+)
 from app.providers.enrichment.mock_provider import (
     MockCompanyEnrichmentProvider,
+)
+from app.providers.enrichment.noop_provider import (
+    NoOpCompanyEnrichmentProvider,
 )
 from app.providers.signals.mock_provider import (
     MockSignalProvider,
@@ -51,10 +57,69 @@ class CompanyDiscoveryRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=1000)
 
 
+class CompanyReplenishmentRequest(BaseModel):
+    icp_id: int = Field(..., ge=1)
+    limit: int = Field(default=100, ge=1, le=1000)
+    source: str = Field(default="mock")
+    csv_path: str = None
+
+
 router = APIRouter(
     prefix="/api/companies",
     tags=["companies"],
 )
+
+
+def get_replenishment_discovery_provider(
+    source: str,
+    csv_path: str = None,
+):
+    normalised_source = source.strip().lower()
+
+    if normalised_source == "mock":
+        return MockCompanyDiscoveryProvider()
+
+    if normalised_source == "clay_csv":
+        if not csv_path or not csv_path.strip():
+            raise ValueError(
+                "csv_path is required for clay_csv source."
+            )
+
+        return ClayCSVCompanyDiscoveryProvider(
+            csv_path.strip()
+        )
+
+    raise ValueError(
+        f"Unsupported replenishment source: {source}"
+    )
+
+
+def get_replenishment_processing_providers(
+    source: str,
+):
+    normalised_source = source.strip().lower()
+
+    if normalised_source == "mock":
+        return {
+            "enrichment_provider": (
+                MockCompanyEnrichmentProvider()
+            ),
+            "enrichment_provider_name": "mock",
+            "signal_provider": MockSignalProvider(),
+        }
+
+    if normalised_source == "clay_csv":
+        return {
+            "enrichment_provider": (
+                NoOpCompanyEnrichmentProvider()
+            ),
+            "enrichment_provider_name": "none",
+            "signal_provider": None,
+        }
+
+    raise ValueError(
+        f"Unsupported replenishment source: {source}"
+    )
 
 
 def get_company_outreach_status(
@@ -181,19 +246,40 @@ def list_companies():
     status_code=status.HTTP_200_OK,
 )
 def replenish_company_pipeline(
-    request: CompanyDiscoveryRequest,
+    request: CompanyReplenishmentRequest,
 ):
     try:
+        discovery_provider = (
+            get_replenishment_discovery_provider(
+                source=request.source,
+                csv_path=request.csv_path,
+            )
+        )
+
+        processing_providers = (
+            get_replenishment_processing_providers(
+                request.source
+            )
+        )
+
         result = replenish_companies(
             icp_id=request.icp_id,
-            discovery_provider=(
-                MockCompanyDiscoveryProvider()
-            ),
+            discovery_provider=discovery_provider,
             enrichment_provider=(
-                MockCompanyEnrichmentProvider()
+                processing_providers[
+                    "enrichment_provider"
+                ]
             ),
-            enrichment_provider_name="mock",
-            signal_provider=MockSignalProvider(),
+            enrichment_provider_name=(
+                processing_providers[
+                    "enrichment_provider_name"
+                ]
+            ),
+            signal_provider=(
+                processing_providers[
+                    "signal_provider"
+                ]
+            ),
             limit=request.limit,
         )
 
