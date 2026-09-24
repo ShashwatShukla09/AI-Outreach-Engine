@@ -11,6 +11,9 @@ from app.services.outreach_review_service import (
     approve_outreach_message,
     reject_outreach_message,
 )
+from app.services.outreach_outcome_service import (
+    record_outreach_outcome,
+)
 from tests.test_outreach_execution import (
     prepare_draft,
 )
@@ -72,4 +75,115 @@ def test_dashboard_summary_returns_all_outreach_states():
     assert any(
         message["id"] == rejected["id"]
         for message in data["rejected_history"]
+    )
+
+
+def test_dashboard_summary_returns_outreach_outcome_metrics():
+    baseline_response = client.get(
+        "/api/outreach/dashboard/summary"
+    )
+
+    assert baseline_response.status_code == 200
+
+    baseline = baseline_response.json()["metrics"]
+
+    sent_ids = []
+
+    for _ in range(4):
+        draft = prepare_draft()
+
+        approve_outreach_message(
+            draft["id"]
+        )
+
+        execute_outreach(
+            outreach_id=draft["id"],
+            provider=MockExecutionProvider(),
+        )
+
+        sent_ids.append(draft["id"])
+
+    record_outreach_outcome(
+        sent_ids[0],
+        "REPLIED",
+    )
+    record_outreach_outcome(
+        sent_ids[0],
+        "POSITIVE",
+    )
+    record_outreach_outcome(
+        sent_ids[0],
+        "MEETING_BOOKED",
+    )
+
+    record_outreach_outcome(
+        sent_ids[1],
+        "REPLIED",
+    )
+    record_outreach_outcome(
+        sent_ids[1],
+        "POSITIVE",
+    )
+
+    record_outreach_outcome(
+        sent_ids[2],
+        "REPLIED",
+    )
+    record_outreach_outcome(
+        sent_ids[2],
+        "NEGATIVE",
+    )
+
+    response = client.get(
+        "/api/outreach/dashboard/summary"
+    )
+
+    assert response.status_code == 200
+
+    metrics = response.json()["metrics"]
+
+    expected_sent = baseline["sent"] + 4
+    expected_replied = baseline.get(
+        "replied",
+        0,
+    ) + 3
+    expected_positive = baseline.get(
+        "positive_replies",
+        0,
+    ) + 2
+    expected_meetings = baseline.get(
+        "meetings_booked",
+        0,
+    ) + 1
+
+    assert metrics["sent"] == expected_sent
+    assert metrics["replied"] == expected_replied
+    assert (
+        metrics["positive_replies"]
+        == expected_positive
+    )
+    assert (
+        metrics["meetings_booked"]
+        == expected_meetings
+    )
+
+    assert metrics["reply_rate"] == round(
+        expected_replied
+        / expected_sent
+        * 100,
+        1,
+    )
+
+    assert metrics["positive_reply_rate"] == round(
+        expected_positive
+        / expected_sent
+        * 100,
+        1,
+    )
+
+    assert metrics["meeting_rate"] == round(
+        expected_meetings
+        / expected_sent
+        * 100,
+        1,
     )

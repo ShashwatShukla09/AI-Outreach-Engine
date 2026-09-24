@@ -351,6 +351,38 @@ def create_tables() -> None:
 
 
             -- =========================================================
+            -- 11. OUTREACH OUTCOMES
+            -- Business outcomes after outreach is sent.
+            -- Keeps response history separate from message status.
+            -- =========================================================
+
+            CREATE TABLE IF NOT EXISTS outreach_outcomes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                outreach_message_id INTEGER NOT NULL,
+
+                outcome_type TEXT NOT NULL
+                    CHECK (
+                        outcome_type IN (
+                            'REPLIED',
+                            'POSITIVE',
+                            'NEGATIVE',
+                            'MEETING_BOOKED'
+                        )
+                    ),
+
+                notes TEXT,
+
+                occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (outreach_message_id)
+                    REFERENCES outreach_messages(id)
+                    ON DELETE CASCADE
+            );
+
+
+            -- =========================================================
             -- INDEXES
             -- Improve common lookup/filter operations.
             -- =========================================================
@@ -396,6 +428,15 @@ def create_tables() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_outreach_company
             ON outreach_messages(company_id);
+
+            CREATE INDEX IF NOT EXISTS idx_outreach_outcomes_message
+            ON outreach_outcomes(outreach_message_id);
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_outreach_outcomes_message_type
+            ON outreach_outcomes(
+                outreach_message_id,
+                outcome_type
+            );
 
             CREATE INDEX IF NOT EXISTS idx_outreach_status
             ON outreach_messages(status);

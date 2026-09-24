@@ -255,6 +255,29 @@ async function openOutreachReview(outreachId) {
             );
         }
 
+        let outcomes = [];
+
+        if (data.outreach.status === "SENT") {
+            try {
+                const outcomesResponse = await fetch(
+                    `${API_BASE_URL}/api/outreach/${outreachId}/outcomes`
+                );
+
+                if (outcomesResponse.ok) {
+                    const outcomesData =
+                        await outcomesResponse.json();
+
+                    outcomes =
+                        outcomesData.outcomes || [];
+                }
+            } catch (outcomeError) {
+                console.error(
+                    "Could not load outreach outcomes:",
+                    outcomeError
+                );
+            }
+        }
+
         if (data.outreach.status === "REJECTED") {
             if (eyebrow) {
                 eyebrow.textContent = "OUTREACH HISTORY";
@@ -265,10 +288,21 @@ async function openOutreachReview(outreachId) {
             }
         }
 
+        if (data.outreach.status === "SENT") {
+            if (eyebrow) {
+                eyebrow.textContent = "OUTREACH RESULTS";
+            }
+
+            if (title) {
+                title.textContent = "Outreach Outcome";
+            }
+        }
+
         renderOutreachReview(
             data.outreach,
             data.review,
-            companyIntelligence
+            companyIntelligence,
+            outcomes
         );
 
     } catch (error) {
@@ -285,10 +319,178 @@ async function openOutreachReview(outreachId) {
     }
 }
 
+async function recordOutreachOutcome(
+    outreachId,
+    outcomeType,
+    button
+) {
+    if (button) {
+        button.disabled = true;
+        button.dataset.originalText =
+            button.textContent.trim();
+        button.textContent = "Saving…";
+    }
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/outreach/${outreachId}/outcomes`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    outcome_type: outcomeType,
+                }),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.detail ||
+                `Outcome failed with status ${response.status}`
+            );
+        }
+
+        await refreshOutreachData();
+
+        await openOutreachReview(
+            outreachId
+        );
+
+    } catch (error) {
+        console.error(
+            "Could not record outreach outcome:",
+            error
+        );
+
+        alert(
+            `Could not record outcome: ${error.message}`
+        );
+
+        if (button) {
+            button.disabled = false;
+            button.textContent =
+                button.dataset.originalText ||
+                "Try again";
+        }
+    }
+}
+
+
+function buildOutreachOutcomePanel(
+    outreach,
+    outcomes
+) {
+    if (outreach.status !== "SENT") {
+        return "";
+    }
+
+    const recordedTypes = new Set(
+        outcomes.map(
+            (outcome) => outcome.outcome_type
+        )
+    );
+
+    const hasReply =
+        recordedTypes.has("REPLIED");
+
+    const hasPositive =
+        recordedTypes.has("POSITIVE");
+
+    const hasNegative =
+        recordedTypes.has("NEGATIVE");
+
+    const hasMeeting =
+        recordedTypes.has("MEETING_BOOKED");
+
+    const outcomeButtons = [
+        {
+            type: "REPLIED",
+            label: "Replied",
+            disabled: hasReply,
+        },
+        {
+            type: "POSITIVE",
+            label: "Positive",
+            disabled:
+                !hasReply ||
+                hasPositive ||
+                hasNegative,
+        },
+        {
+            type: "NEGATIVE",
+            label: "Negative",
+            disabled:
+                !hasReply ||
+                hasNegative ||
+                hasPositive,
+        },
+        {
+            type: "MEETING_BOOKED",
+            label: "Meeting Booked",
+            disabled:
+                !hasReply ||
+                hasMeeting,
+        },
+    ];
+
+    const recordedMarkup = outcomes.length
+        ? `
+            <div class="outcome-history">
+                ${outcomes.map((outcome) => `
+                    <span class="outcome-recorded">
+                        ✓ ${escapeHtml(
+                            outcome.outcome_type
+                                .replaceAll("_", " ")
+                        )}
+                    </span>
+                `).join("")}
+            </div>
+        `
+        : `
+            <p class="outcome-empty">
+                No response recorded yet.
+            </p>
+        `;
+
+    return `
+        <section class="review-info-card outcome-card">
+            <span class="review-field-label">
+                OUTCOME
+            </span>
+
+            <p class="outcome-helper">
+                Record what happened after this outreach was sent.
+            </p>
+
+            <div class="outcome-actions">
+                ${outcomeButtons.map((button) => `
+                    <button
+                        class="outcome-action"
+                        type="button"
+                        data-outcome-type="${button.type}"
+                        data-outreach-id="${outreach.id}"
+                        ${button.disabled ? "disabled" : ""}
+                    >
+                        ${escapeHtml(button.label)}
+                    </button>
+                `).join("")}
+            </div>
+
+            ${recordedMarkup}
+        </section>
+    `;
+}
+
+
 function renderOutreachReview(
     outreach,
     review,
-    companyIntelligence = null
+    companyIntelligence = null,
+    outcomes = []
 ) {
     const content = document.getElementById(
         "review-sheet-content"
@@ -499,7 +701,7 @@ function renderOutreachReview(
             </p>
         </section>
 
-        <section class="review-info-card">
+        <section class="review-info-card subject-card">
             <span class="review-field-label">
                 SUBJECT
             </span>
@@ -521,41 +723,53 @@ function renderOutreachReview(
             )}</p>
         </section>
 
+        ${buildOutreachOutcomePanel(
+            outreach,
+            outcomes
+        )}
+
     `;
 
-    footer.innerHTML = `
-        <div class="review-sheet-actions">
-            <button
-                class="sheet-action reject"
-                type="button"
-                data-review-action="reject"
-                data-outreach-id="${outreach.id}"
-                ${review.can_reject ? "" : "disabled"}
-            >
-                Reject
-            </button>
+    if (outreach.status === "SENT") {
+        footer.innerHTML = "";
+        footer.style.display = "none";
+    } else {
+        footer.style.display = "";
 
-            <button
-                class="sheet-action edit"
-                type="button"
-                data-review-action="edit"
-                data-outreach-id="${outreach.id}"
-                ${review.can_edit ? "" : "disabled"}
-            >
-                Edit
-            </button>
+        footer.innerHTML = `
+            <div class="review-sheet-actions">
+                <button
+                    class="sheet-action reject"
+                    type="button"
+                    data-review-action="reject"
+                    data-outreach-id="${outreach.id}"
+                    ${review.can_reject ? "" : "disabled"}
+                >
+                    Reject
+                </button>
 
-            <button
-                class="sheet-action approve"
-                type="button"
-                data-review-action="approve"
-                data-outreach-id="${outreach.id}"
-                ${review.can_approve ? "" : "disabled"}
-            >
-                Approve
-            </button>
-        </div>
-    `;
+                <button
+                    class="sheet-action edit"
+                    type="button"
+                    data-review-action="edit"
+                    data-outreach-id="${outreach.id}"
+                    ${review.can_edit ? "" : "disabled"}
+                >
+                    Edit
+                </button>
+
+                <button
+                    class="sheet-action approve"
+                    type="button"
+                    data-review-action="approve"
+                    data-outreach-id="${outreach.id}"
+                    ${review.can_approve ? "" : "disabled"}
+                >
+                    Approve
+                </button>
+            </div>
+        `;
+    }
 }
 
 function closeOutreachReview() {
@@ -698,7 +912,7 @@ function openOutreachEdit(outreachId) {
     );
 
     const subjectCard = document.querySelector(
-        ".review-info-card:not(.reason-card):not(.message-card) p"
+        ".subject-card p"
     );
 
     const messageElement = document.querySelector(
@@ -1118,14 +1332,25 @@ function renderSentHistory(messages) {
                     </p>
                 </div>
 
-                <button
-                    class="execute-button"
-                    type="button"
-                    data-activity-id="${message.id}"
-                >
-                    View Activity
-                    <span>→</span>
-                </button>
+                <div class="sent-item-actions">
+                    <button
+                        class="sent-outcome-button"
+                        type="button"
+                        data-sent-outcome-id="${message.id}"
+                    >
+                        Outcome
+                        <span>→</span>
+                    </button>
+
+                    <button
+                        class="execute-button"
+                        type="button"
+                        data-activity-id="${message.id}"
+                    >
+                        View Activity
+                        <span>→</span>
+                    </button>
+                </div>
             </article>
         `;
     }).join("");
@@ -2824,14 +3049,25 @@ function renderOutreachWorkspace() {
 
         if (message.status === "SENT") {
             actionHtml = `
-                <button
-                    class="execute-button"
-                    type="button"
-                    data-activity-id="${message.id}"
-                >
-                    View Activity
-                    <span>→</span>
-                </button>
+                <div class="sent-item-actions">
+                    <button
+                        class="sent-outcome-button"
+                        type="button"
+                        data-sent-outcome-id="${message.id}"
+                    >
+                        Outcome
+                        <span>→</span>
+                    </button>
+
+                    <button
+                        class="execute-button"
+                        type="button"
+                        data-activity-id="${message.id}"
+                    >
+                        View Activity
+                        <span>→</span>
+                    </button>
+                </div>
             `;
         }
 
@@ -3353,3 +3589,35 @@ document.getElementById(
         input.value = "";
     }
 );
+
+
+document.addEventListener("click", async (event) => {
+    const outcomeButton = event.target.closest(
+        "[data-outcome-type]"
+    );
+
+    if (!outcomeButton) {
+        return;
+    }
+
+    await recordOutreachOutcome(
+        outcomeButton.dataset.outreachId,
+        outcomeButton.dataset.outcomeType,
+        outcomeButton
+    );
+});
+
+
+document.addEventListener("click", async (event) => {
+    const outcomeReviewButton = event.target.closest(
+        "[data-sent-outcome-id]"
+    );
+
+    if (!outcomeReviewButton) {
+        return;
+    }
+
+    await openOutreachReview(
+        outcomeReviewButton.dataset.sentOutcomeId
+    );
+});

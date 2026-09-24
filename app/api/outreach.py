@@ -1,4 +1,8 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
 from app.db.database import get_connection
 
 from app.providers.execution.n8n_provider import (
@@ -16,11 +20,21 @@ from app.schemas.outreach import OutreachEdit
 from app.services.outreach_execution_service import (
     execute_outreach,
 )
+from app.services.outreach_outcome_service import (
+    list_outreach_outcomes,
+    record_outreach_outcome,
+)
 from app.services.outreach_review_service import (
     approve_outreach_message,
     edit_outreach,
     reject_outreach_message,
 )
+
+
+class OutreachOutcomeCreate(BaseModel):
+    outcome_type: str
+    notes: Optional[str] = None
+    occurred_at: Optional[str] = None
 
 
 router = APIRouter(
@@ -256,6 +270,68 @@ def get_outreach_events_endpoint(
         "events": events,
     }
 
+@router.post("/{outreach_id}/outcomes")
+def create_outreach_outcome_endpoint(
+    outreach_id: int,
+    outcome: OutreachOutcomeCreate,
+):
+    try:
+        created = record_outreach_outcome(
+            outreach_message_id=outreach_id,
+            outcome_type=outcome.outcome_type,
+            notes=outcome.notes,
+            occurred_at=outcome.occurred_at,
+        )
+
+    except ValueError as exc:
+        error = str(exc)
+
+        if error == "Outreach message not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=error,
+            )
+
+        raise HTTPException(
+            status_code=409,
+            detail=error,
+        )
+
+    return {
+        "outreach_id": outreach_id,
+        "outcome": created,
+    }
+
+
+@router.get("/{outreach_id}/outcomes")
+def get_outreach_outcomes_endpoint(
+    outreach_id: int,
+):
+    try:
+        outcomes = list_outreach_outcomes(
+            outreach_id
+        )
+
+    except ValueError as exc:
+        error = str(exc)
+
+        if error == "Outreach message not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=error,
+            )
+
+        raise HTTPException(
+            status_code=409,
+            detail=error,
+        )
+
+    return {
+        "outreach_id": outreach_id,
+        "outcomes": outcomes,
+    }
+
+
 @router.get("/dashboard/summary")
 def get_outreach_dashboard_summary():
     drafts = list_outreach_messages(
@@ -303,8 +379,53 @@ def get_outreach_dashboard_summary():
               ) = 'HIGH'
             """
         ).fetchone()[0]
+
+        replied = connection.execute(
+            """
+            SELECT COUNT(DISTINCT outreach_message_id)
+            FROM outreach_outcomes
+            WHERE outcome_type = 'REPLIED'
+            """
+        ).fetchone()[0]
+
+        positive_replies = connection.execute(
+            """
+            SELECT COUNT(DISTINCT outreach_message_id)
+            FROM outreach_outcomes
+            WHERE outcome_type = 'POSITIVE'
+            """
+        ).fetchone()[0]
+
+        meetings_booked = connection.execute(
+            """
+            SELECT COUNT(DISTINCT outreach_message_id)
+            FROM outreach_outcomes
+            WHERE outcome_type = 'MEETING_BOOKED'
+            """
+        ).fetchone()[0]
+
     finally:
         connection.close()
+
+    sent_count = len(sent)
+
+    if sent_count:
+        reply_rate = round(
+            replied / sent_count * 100,
+            1,
+        )
+        positive_reply_rate = round(
+            positive_replies / sent_count * 100,
+            1,
+        )
+        meeting_rate = round(
+            meetings_booked / sent_count * 100,
+            1,
+        )
+    else:
+        reply_rate = 0.0
+        positive_reply_rate = 0.0
+        meeting_rate = 0.0
 
     return {
         "metrics": {
@@ -314,6 +435,12 @@ def get_outreach_dashboard_summary():
             "approved": len(approved),
             "sent": len(sent),
             "rejected": len(rejected),
+            "replied": replied,
+            "positive_replies": positive_replies,
+            "meetings_booked": meetings_booked,
+            "reply_rate": reply_rate,
+            "positive_reply_rate": positive_reply_rate,
+            "meeting_rate": meeting_rate,
         },
         "review_queue": drafts[:10],
         "ready_to_send": approved[:10],

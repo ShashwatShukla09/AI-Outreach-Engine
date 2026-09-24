@@ -2749,3 +2749,129 @@ body.review-open {
         transform: rotate(360deg);
     }
 }
+
+
+/* OUTREACH OUTCOMES */
+
+.review-info-card.outcome-card {
+    background: var(--olive-soft);
+}
+
+.outcome-helper {
+    margin-bottom: 16px !important;
+
+    color: var(--muted);
+}
+
+.outcome-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.outcome-action {
+    padding: 9px 13px;
+
+    border: 0;
+    border-radius: 999px;
+
+    background: var(--black);
+    color: white;
+
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        transform var(--spring),
+        opacity var(--spring);
+}
+
+.outcome-action:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.outcome-action:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+.outcome-action:disabled {
+    opacity: 0.32;
+    cursor: default;
+}
+
+.outcome-history {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+
+    margin-top: 16px;
+}
+
+.outcome-recorded {
+    display: inline-flex;
+    align-items: center;
+
+    padding: 7px 10px;
+
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, 0.58);
+
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.outcome-empty {
+    margin-top: 14px !important;
+
+    color: var(--muted);
+
+    font-size: 12px !important;
+}
+
+
+/* SENT OUTCOME ACTION */
+
+.sent-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    flex-shrink: 0;
+}
+
+.sent-outcome-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 11px 16px;
+
+    border: 0;
+    border-radius: 999px;
+
+    background: var(--black);
+    color: white;
+
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        transform var(--spring),
+        opacity var(--spring);
+}
+
+.sent-outcome-button:hover {
+    transform: translateY(-1px);
+}
+
+.sent-outcome-button:active {
+    transform: scale(0.97);
+}
