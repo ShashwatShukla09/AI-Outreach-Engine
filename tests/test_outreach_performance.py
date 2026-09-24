@@ -1,4 +1,8 @@
 from app.db.database import get_connection
+from app.repositories.outreach_performance_repository import (
+    get_sent_outreach_performance_rows,
+    get_sent_outreach_signal_rows,
+)
 from app.services.outreach_outcome_service import (
     record_outreach_outcome,
 )
@@ -76,6 +80,7 @@ def _create_sent_outreach(
     industry: str,
     buyer_category: str,
     business_model: str,
+    before_send=None,
 ) -> dict:
     draft = prepare_draft()
 
@@ -93,6 +98,9 @@ def _create_sent_outreach(
     approve_outreach_message(
         draft["id"]
     )
+
+    if before_send is not None:
+        before_send(draft)
 
     execute_outreach(
         outreach_id=draft["id"],
@@ -229,73 +237,75 @@ def test_five_sent_messages_become_early_signal():
 
 
 def test_signal_performance_does_not_double_count_same_type():
+    def add_signals_before_send(draft):
+        connection = get_connection()
+
+        try:
+            connection.execute(
+                """
+                INSERT INTO signals (
+                    company_id,
+                    signal_type,
+                    title,
+                    confidence
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    draft["company_id"],
+                    "TEST_EXPANSION",
+                    "First expansion signal",
+                    "HIGH",
+                ),
+            )
+
+            connection.execute(
+                """
+                INSERT INTO signals (
+                    company_id,
+                    signal_type,
+                    title,
+                    confidence
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    draft["company_id"],
+                    "TEST_EXPANSION",
+                    "Second expansion signal",
+                    "HIGH",
+                ),
+            )
+
+            connection.execute(
+                """
+                INSERT INTO signals (
+                    company_id,
+                    signal_type,
+                    title,
+                    confidence
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    draft["company_id"],
+                    "TEST_HIRING",
+                    "Hiring signal",
+                    "HIGH",
+                ),
+            )
+
+            connection.commit()
+
+        finally:
+            connection.close()
+
     outreach = _create_sent_outreach(
         industry="Signal Test Industry",
         buyer_category="Signal Test Buyer",
         business_model="Signal Test Model",
+        before_send=add_signals_before_send,
     )
-
-    connection = get_connection()
-
-    try:
-        connection.execute(
-            """
-            INSERT INTO signals (
-                company_id,
-                signal_type,
-                title,
-                confidence
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                outreach["company_id"],
-                "TEST_EXPANSION",
-                "First expansion signal",
-                "HIGH",
-            ),
-        )
-
-        connection.execute(
-            """
-            INSERT INTO signals (
-                company_id,
-                signal_type,
-                title,
-                confidence
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                outreach["company_id"],
-                "TEST_EXPANSION",
-                "Second expansion signal",
-                "HIGH",
-            ),
-        )
-
-        connection.execute(
-            """
-            INSERT INTO signals (
-                company_id,
-                signal_type,
-                title,
-                confidence
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                outreach["company_id"],
-                "TEST_HIRING",
-                "Hiring signal",
-                "HIGH",
-            ),
-        )
-
-        connection.commit()
-
-    finally:
-        connection.close()
 
     record_outreach_outcome(
         outreach["id"],
@@ -382,3 +392,141 @@ def test_non_sent_outreach_does_not_enter_performance_segments():
         )
 
         assert segmented_sent == overall_sent
+
+
+def test_sent_performance_uses_frozen_attribution_snapshot():
+    sent = _create_sent_outreach(
+        industry="Logistics",
+        buyer_category="Operations",
+        business_model="B2B",
+    )
+
+    before = get_outreach_performance()
+
+    original_row = next(
+        row
+        for row in get_sent_outreach_performance_rows()
+        if row["outreach_id"] == sent["id"]
+    )
+
+    original_product = original_row["product_name"]
+    original_icp = original_row["icp_name"]
+    original_market = original_row["market"]
+    original_country = original_row["country"]
+    original_industry = original_row["industry"]
+    original_business_model = original_row["business_model"]
+    original_buyer_category = original_row["buyer_category"]
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            UPDATE companies
+            SET market = ?,
+                country = ?,
+                industry = ?,
+                business_model = ?
+            WHERE id = ?
+            """,
+            (
+                "CHANGED_MARKET",
+                "Changed Country",
+                "Changed Industry",
+                "Changed Model",
+                sent["company_id"],
+            ),
+        )
+
+        connection.execute(
+            """
+            UPDATE contacts
+            SET buyer_category = ?
+            WHERE id = ?
+            """,
+            (
+                "Changed Buyer",
+                sent["contact_id"],
+            ),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    after_row = next(
+        row
+        for row in get_sent_outreach_performance_rows()
+        if row["outreach_id"] == sent["id"]
+    )
+
+    assert after_row["product_name"] == original_product
+    assert after_row["icp_name"] == original_icp
+    assert after_row["market"] == original_market
+    assert after_row["country"] == original_country
+    assert after_row["industry"] == original_industry
+    assert after_row["business_model"] == original_business_model
+    assert after_row["buyer_category"] == original_buyer_category
+
+    after = get_outreach_performance()
+
+    assert (
+        sum(item["sent"] for item in before["by_market"])
+        ==
+        sum(item["sent"] for item in after["by_market"])
+    )
+
+
+def test_signal_added_after_send_is_not_attributed_to_old_outreach():
+    outreach = _create_sent_outreach(
+        industry="Post Send Signal Industry",
+        buyer_category="Operations",
+        business_model="B2B",
+    )
+
+    rows_before = get_sent_outreach_signal_rows()
+
+    before_types = {
+        row["signal_type"]
+        for row in rows_before
+        if row["outreach_id"] == outreach["id"]
+    }
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO signals (
+                company_id,
+                signal_type,
+                title,
+                confidence
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                outreach["company_id"],
+                "POST_SEND_SIGNAL",
+                "Signal discovered after outreach",
+                "HIGH",
+            ),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    rows_after = get_sent_outreach_signal_rows()
+
+    after_types = {
+        row["signal_type"]
+        for row in rows_after
+        if row["outreach_id"] == outreach["id"]
+    }
+
+    assert "POST_SEND_SIGNAL" not in before_types
+    assert "POST_SEND_SIGNAL" not in after_types
+    assert after_types == before_types

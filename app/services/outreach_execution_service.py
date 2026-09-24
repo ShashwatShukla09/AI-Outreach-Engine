@@ -5,6 +5,9 @@ from app.providers.execution.base import (
 from app.repositories.outreach_event_repository import (
     create_outreach_event,
 )
+from app.repositories.outreach_attribution_snapshot_repository import (
+    create_outreach_attribution_snapshot,
+)
 from app.repositories.outreach_repository import (
     get_outreach_message,
     mark_outreach_sent,
@@ -106,6 +109,10 @@ def execute_outreach(
         )
 
     sent_message = mark_outreach_sent(
+        outreach_id
+    )
+
+    create_outreach_attribution_snapshot(
         outreach_id
     )
 

@@ -24,20 +24,54 @@ def get_sent_outreach_performance_rows() -> List[dict]:
                 om.sent_at,
 
                 c.name AS company_name,
-                c.icp_id,
-                c.market,
-                c.industry,
-                c.country,
+                COALESCE(
+                    oas.icp_id,
+                    c.icp_id
+                ) AS icp_id,
+
+                COALESCE(
+                    oas.market,
+                    c.market
+                ) AS market,
+
+                COALESCE(
+                    oas.industry,
+                    c.industry
+                ) AS industry,
+
+                COALESCE(
+                    oas.country,
+                    c.country
+                ) AS country,
+
                 c.employee_count,
-                c.business_model,
 
-                i.name AS icp_name,
-                i.product_id,
+                COALESCE(
+                    oas.business_model,
+                    c.business_model
+                ) AS business_model,
 
-                p.name AS product_name,
+                COALESCE(
+                    oas.icp_name,
+                    i.name
+                ) AS icp_name,
+
+                COALESCE(
+                    oas.product_id,
+                    i.product_id
+                ) AS product_id,
+
+                COALESCE(
+                    oas.product_name,
+                    p.name
+                ) AS product_name,
 
                 ct.job_title,
-                ct.buyer_category,
+
+                COALESCE(
+                    oas.buyer_category,
+                    ct.buyer_category
+                ) AS buyer_category,
 
                 MAX(
                     CASE
@@ -85,6 +119,9 @@ def get_sent_outreach_performance_rows() -> List[dict]:
             LEFT JOIN contacts ct
                 ON ct.id = om.contact_id
 
+            LEFT JOIN outreach_attribution_snapshots oas
+                ON oas.outreach_message_id = om.id
+
             LEFT JOIN outreach_outcomes oo
                 ON oo.outreach_message_id = om.id
 
@@ -96,17 +133,17 @@ def get_sent_outreach_performance_rows() -> List[dict]:
                 om.contact_id,
                 om.sent_at,
                 c.name,
-                c.icp_id,
-                c.market,
-                c.industry,
-                c.country,
+                COALESCE(oas.icp_id, c.icp_id),
+                COALESCE(oas.market, c.market),
+                COALESCE(oas.industry, c.industry),
+                COALESCE(oas.country, c.country),
                 c.employee_count,
-                c.business_model,
-                i.name,
-                i.product_id,
-                p.name,
+                COALESCE(oas.business_model, c.business_model),
+                COALESCE(oas.icp_name, i.name),
+                COALESCE(oas.product_id, i.product_id),
+                COALESCE(oas.product_name, p.name),
                 ct.job_title,
-                ct.buyer_category
+                COALESCE(oas.buyer_category, ct.buyer_category)
 
             ORDER BY om.id
             """
@@ -125,9 +162,9 @@ def get_sent_outreach_signal_rows() -> List[dict]:
     """
     Return one row per unique outreach + signal type.
 
-    A company may have multiple individual signals of the same
-    type. DISTINCT prevents those duplicate signal records from
-    counting the same outreach more than once inside that cohort.
+    New outreach uses the immutable signal snapshot captured
+    at send time. Legacy outreach without a snapshot falls
+    back to the current company signals.
     """
 
     connection = get_connection()
@@ -135,15 +172,79 @@ def get_sent_outreach_signal_rows() -> List[dict]:
     try:
         rows = connection.execute(
             """
-            SELECT DISTINCT
-                om.id AS outreach_id,
-                s.signal_type,
+            WITH snapshot_signals AS (
+                SELECT DISTINCT
+                    om.id AS outreach_id,
+                    json_extract(
+                        signal.value,
+                        '$.signal_type'
+                    ) AS signal_type
+
+                FROM outreach_messages om
+
+                JOIN outreach_attribution_snapshots oas
+                    ON oas.outreach_message_id = om.id
+
+                JOIN json_each(
+                    oas.signals_json
+                ) AS signal
+
+                WHERE om.status = 'SENT'
+                  AND json_extract(
+                      signal.value,
+                      '$.signal_type'
+                  ) IS NOT NULL
+                  AND TRIM(
+                      json_extract(
+                          signal.value,
+                          '$.signal_type'
+                      )
+                  ) != ''
+            ),
+
+            legacy_signals AS (
+                SELECT DISTINCT
+                    om.id AS outreach_id,
+                    s.signal_type
+
+                FROM outreach_messages om
+
+                JOIN signals s
+                    ON s.company_id = om.company_id
+
+                LEFT JOIN outreach_attribution_snapshots oas
+                    ON oas.outreach_message_id = om.id
+
+                WHERE om.status = 'SENT'
+                  AND oas.id IS NULL
+                  AND s.signal_type IS NOT NULL
+                  AND TRIM(s.signal_type) != ''
+            ),
+
+            attributed_signals AS (
+                SELECT
+                    outreach_id,
+                    signal_type
+                FROM snapshot_signals
+
+                UNION
+
+                SELECT
+                    outreach_id,
+                    signal_type
+                FROM legacy_signals
+            )
+
+            SELECT
+                attributed.outreach_id,
+                attributed.signal_type,
 
                 CASE
                     WHEN EXISTS (
                         SELECT 1
                         FROM outreach_outcomes oo
-                        WHERE oo.outreach_message_id = om.id
+                        WHERE oo.outreach_message_id =
+                            attributed.outreach_id
                           AND oo.outcome_type = 'REPLIED'
                     )
                     THEN 1
@@ -154,7 +255,8 @@ def get_sent_outreach_signal_rows() -> List[dict]:
                     WHEN EXISTS (
                         SELECT 1
                         FROM outreach_outcomes oo
-                        WHERE oo.outreach_message_id = om.id
+                        WHERE oo.outreach_message_id =
+                            attributed.outreach_id
                           AND oo.outcome_type = 'POSITIVE'
                     )
                     THEN 1
@@ -165,7 +267,8 @@ def get_sent_outreach_signal_rows() -> List[dict]:
                     WHEN EXISTS (
                         SELECT 1
                         FROM outreach_outcomes oo
-                        WHERE oo.outreach_message_id = om.id
+                        WHERE oo.outreach_message_id =
+                            attributed.outreach_id
                           AND oo.outcome_type = 'NEGATIVE'
                     )
                     THEN 1
@@ -176,25 +279,19 @@ def get_sent_outreach_signal_rows() -> List[dict]:
                     WHEN EXISTS (
                         SELECT 1
                         FROM outreach_outcomes oo
-                        WHERE oo.outreach_message_id = om.id
+                        WHERE oo.outreach_message_id =
+                            attributed.outreach_id
                           AND oo.outcome_type = 'MEETING_BOOKED'
                     )
                     THEN 1
                     ELSE 0
                 END AS meeting_booked
 
-            FROM outreach_messages om
-
-            JOIN signals s
-                ON s.company_id = om.company_id
-
-            WHERE om.status = 'SENT'
-              AND s.signal_type IS NOT NULL
-              AND TRIM(s.signal_type) != ''
+            FROM attributed_signals attributed
 
             ORDER BY
-                s.signal_type,
-                om.id
+                attributed.signal_type,
+                attributed.outreach_id
             """
         ).fetchall()
 

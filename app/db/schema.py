@@ -383,6 +383,48 @@ def create_tables() -> None:
 
 
             -- =========================================================
+            -- 12. OUTREACH ATTRIBUTION SNAPSHOTS
+            -- Immutable targeting context captured when outreach is sent.
+            -- Protects historical analytics from later company/ICP edits.
+            -- =========================================================
+
+            CREATE TABLE IF NOT EXISTS outreach_attribution_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                outreach_message_id INTEGER NOT NULL UNIQUE,
+
+                product_id INTEGER,
+                product_name TEXT,
+
+                icp_id INTEGER,
+                icp_name TEXT,
+
+                market TEXT,
+                country TEXT,
+                industry TEXT,
+                business_model TEXT,
+                buyer_category TEXT,
+
+                signals_json TEXT NOT NULL DEFAULT '[]',
+
+                captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (outreach_message_id)
+                    REFERENCES outreach_messages(id)
+                    ON DELETE CASCADE,
+
+                FOREIGN KEY (product_id)
+                    REFERENCES products(id)
+                    ON DELETE SET NULL,
+
+                FOREIGN KEY (icp_id)
+                    REFERENCES icps(id)
+                    ON DELETE SET NULL
+            );
+
+
+
+            -- =========================================================
             -- INDEXES
             -- Improve common lookup/filter operations.
             -- =========================================================

@@ -2,6 +2,8 @@ import json
 
 import pytest
 
+from app.db.database import get_connection
+
 from app.providers.contacts.mock_provider import (
     MockContactProvider,
 )
@@ -13,6 +15,9 @@ from app.providers.signals.mock_provider import (
 )
 from app.repositories.outreach_event_repository import (
     get_outreach_events,
+)
+from app.repositories.outreach_attribution_snapshot_repository import (
+    get_outreach_attribution_snapshot,
 )
 from app.services.company_qualification_service import (
     qualify_company,
@@ -129,6 +134,21 @@ def test_approved_outreach_can_be_executed():
 
     assert sent_data["provider"] == "mock"
 
+    snapshot = get_outreach_attribution_snapshot(
+        draft["id"]
+    )
+
+    assert snapshot is not None
+    assert snapshot["outreach_message_id"] == draft["id"]
+    assert snapshot["product_id"] is not None
+    assert snapshot["product_name"]
+    assert snapshot["icp_id"] is not None
+    assert snapshot["icp_name"]
+    assert snapshot["market"]
+    assert snapshot["country"]
+    assert snapshot["buyer_category"]
+    assert isinstance(snapshot["signals"], list)
+
 
 def test_sent_outreach_cannot_be_sent_again():
     draft = prepare_draft()
@@ -153,3 +173,55 @@ def test_sent_outreach_cannot_be_sent_again():
             outreach_id=draft["id"],
             provider=MockExecutionProvider(),
         )
+
+
+def test_failed_execution_does_not_create_snapshot():
+    draft = prepare_draft()
+
+    approve_outreach_message(
+        draft["id"]
+    )
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            UPDATE contacts
+            SET email = NULL
+            WHERE id = ?
+            """,
+            (draft["contact_id"],),
+        )
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    with pytest.raises(
+        ValueError,
+        match="Contact has no email address",
+    ):
+        execute_outreach(
+            outreach_id=draft["id"],
+            provider=MockExecutionProvider(),
+        )
+
+    snapshot = get_outreach_attribution_snapshot(
+        draft["id"]
+    )
+
+    assert snapshot is None
+
+    events = get_outreach_events(
+        draft["id"]
+    )
+
+    assert [
+        event["event_type"]
+        for event in events
+    ] == [
+        "APPROVED",
+        "SEND_ATTEMPTED",
+        "SEND_FAILED",
+    ]
