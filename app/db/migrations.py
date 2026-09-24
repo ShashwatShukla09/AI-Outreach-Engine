@@ -113,6 +113,99 @@ def run_migrations() -> None:
             )
 
 
+        if not table_exists(
+            "campaigns"
+        ):
+            connection.execute(
+                """
+                CREATE TABLE campaigns (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                    product_id INTEGER NOT NULL,
+                    icp_id INTEGER NOT NULL,
+
+                    name TEXT NOT NULL,
+                    market TEXT,
+
+                    status TEXT NOT NULL DEFAULT 'DRAFT'
+                        CHECK (
+                            status IN (
+                                'DRAFT',
+                                'ACTIVE',
+                                'PAUSED',
+                                'COMPLETED'
+                            )
+                        ),
+
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                    FOREIGN KEY (product_id)
+                        REFERENCES products(id)
+                        ON DELETE CASCADE,
+
+                    FOREIGN KEY (icp_id)
+                        REFERENCES icps(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+
+        if not table_exists(
+            "campaign_companies"
+        ):
+            connection.execute(
+                """
+                CREATE TABLE campaign_companies (
+                    campaign_id INTEGER NOT NULL,
+                    company_id INTEGER NOT NULL,
+
+                    added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                    PRIMARY KEY (
+                        campaign_id,
+                        company_id
+                    ),
+
+                    FOREIGN KEY (campaign_id)
+                        REFERENCES campaigns(id)
+                        ON DELETE CASCADE,
+
+                    FOREIGN KEY (company_id)
+                        REFERENCES companies(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_campaigns_product
+            ON campaigns(product_id)
+            """
+        )
+
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_campaigns_icp
+            ON campaigns(icp_id)
+            """
+        )
+
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_campaigns_status
+            ON campaigns(status)
+            """
+        )
+
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_campaign_companies_company
+            ON campaign_companies(company_id)
+            """
+        )
+
         connection.commit()
 
     finally:

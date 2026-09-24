@@ -293,7 +293,71 @@ def create_tables() -> None:
 
 
             -- =========================================================
-            -- 9. OUTREACH MESSAGES
+            -- 9. CAMPAIGNS
+            -- Groups target accounts and outreach into one GTM experiment.
+            -- =========================================================
+
+            CREATE TABLE IF NOT EXISTS campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                product_id INTEGER NOT NULL,
+                icp_id INTEGER NOT NULL,
+
+                name TEXT NOT NULL,
+                market TEXT,
+
+                status TEXT NOT NULL DEFAULT 'DRAFT'
+                    CHECK (
+                        status IN (
+                            'DRAFT',
+                            'ACTIVE',
+                            'PAUSED',
+                            'COMPLETED'
+                        )
+                    ),
+
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (product_id)
+                    REFERENCES products(id)
+                    ON DELETE CASCADE,
+
+                FOREIGN KEY (icp_id)
+                    REFERENCES icps(id)
+                    ON DELETE CASCADE
+            );
+
+
+            -- =========================================================
+            -- 10. CAMPAIGN COMPANIES
+            -- Accounts selected to participate in a campaign.
+            -- A company may participate in multiple campaigns.
+            -- =========================================================
+
+            CREATE TABLE IF NOT EXISTS campaign_companies (
+                campaign_id INTEGER NOT NULL,
+                company_id INTEGER NOT NULL,
+
+                added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                PRIMARY KEY (
+                    campaign_id,
+                    company_id
+                ),
+
+                FOREIGN KEY (campaign_id)
+                    REFERENCES campaigns(id)
+                    ON DELETE CASCADE,
+
+                FOREIGN KEY (company_id)
+                    REFERENCES companies(id)
+                    ON DELETE CASCADE
+            );
+
+
+            -- =========================================================
+            -- 11. OUTREACH MESSAGES
             -- AI-generated outreach with human approval.
             -- =========================================================
 
@@ -330,7 +394,7 @@ def create_tables() -> None:
 
 
             -- =========================================================
-            -- 10. OUTREACH EVENTS
+            -- 12. OUTREACH EVENTS
             -- What happened after outreach?
             -- =========================================================
 
@@ -351,7 +415,7 @@ def create_tables() -> None:
 
 
             -- =========================================================
-            -- 11. OUTREACH OUTCOMES
+            -- 13. OUTREACH OUTCOMES
             -- Business outcomes after outreach is sent.
             -- Keeps response history separate from message status.
             -- =========================================================
@@ -383,7 +447,7 @@ def create_tables() -> None:
 
 
             -- =========================================================
-            -- 12. OUTREACH ATTRIBUTION SNAPSHOTS
+            -- 14. OUTREACH ATTRIBUTION SNAPSHOTS
             -- Immutable targeting context captured when outreach is sent.
             -- Protects historical analytics from later company/ICP edits.
             -- =========================================================
@@ -466,6 +530,19 @@ def create_tables() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_enrichment_status
             ON enrichment_jobs(status);
+
+
+            CREATE INDEX IF NOT EXISTS idx_campaigns_product
+            ON campaigns(product_id);
+
+            CREATE INDEX IF NOT EXISTS idx_campaigns_icp
+            ON campaigns(icp_id);
+
+            CREATE INDEX IF NOT EXISTS idx_campaigns_status
+            ON campaigns(status);
+
+            CREATE INDEX IF NOT EXISTS idx_campaign_companies_company
+            ON campaign_companies(company_id);
 
 
             CREATE INDEX IF NOT EXISTS idx_outreach_company
