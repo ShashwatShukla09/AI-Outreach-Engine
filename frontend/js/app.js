@@ -3192,6 +3192,8 @@ async function replenishCompanies() {
             );
         }, 5000);
 
+        throw error;
+
     } finally {
         companiesReplenishing = false;
     }
@@ -3204,3 +3206,150 @@ document
         "click",
         replenishCompanies
     );
+
+
+// CLAY CSV SOURCE UPLOAD
+
+let clayCsvUploading = false;
+
+
+function setClayCsvUploadButtonState(
+    isLoading,
+    label = null
+) {
+    const button = document.getElementById(
+        "upload-clay-csv-button"
+    );
+
+    if (!button) {
+        return;
+    }
+
+    button.disabled = isLoading;
+
+    const labelElement = button.querySelector(
+        "span:last-child"
+    );
+
+    if (labelElement) {
+        labelElement.textContent = (
+            label ||
+            (isLoading ? "Uploading..." : "Upload CSV")
+        );
+    }
+}
+
+
+async function uploadClayCsv(file) {
+    if (!file || clayCsvUploading) {
+        return;
+    }
+
+    clayCsvUploading = true;
+
+    setClayCsvUploadButtonState(
+        true,
+        "Uploading..."
+    );
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/api/companies/upload-clay-csv`,
+            {
+                method: "POST",
+                body: formData,
+            }
+        );
+
+        let data = null;
+
+        try {
+            data = await response.json();
+        } catch (parseError) {
+            // Keep HTTP fallback below.
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                data?.detail ||
+                `Upload failed: ${response.status}`
+            );
+        }
+
+        setClayCsvUploadButtonState(
+            true,
+            `${data.rows_received} rows uploaded`
+        );
+
+        await replenishCompanies();
+
+        setClayCsvUploadButtonState(
+            false,
+            "Upload complete"
+        );
+
+        window.setTimeout(
+            () => setClayCsvUploadButtonState(
+                false,
+                "Upload CSV"
+            ),
+            5000
+        );
+
+    } catch (error) {
+        console.error(
+            "Clay CSV upload failed:",
+            error
+        );
+
+        setClayCsvUploadButtonState(
+            false,
+            "Processing failed"
+        );
+
+        window.setTimeout(
+            () => setClayCsvUploadButtonState(
+                false,
+                "Upload CSV"
+            ),
+            5000
+        );
+
+    } finally {
+        clayCsvUploading = false;
+    }
+}
+
+
+document.getElementById(
+    "upload-clay-csv-button"
+)?.addEventListener(
+    "click",
+    () => {
+        document.getElementById(
+            "clay-csv-file-input"
+        )?.click();
+    }
+);
+
+
+document.getElementById(
+    "clay-csv-file-input"
+)?.addEventListener(
+    "change",
+    async (event) => {
+        const input = event.target;
+        const file = input.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        await uploadClayCsv(file);
+
+        input.value = "";
+    }
+);

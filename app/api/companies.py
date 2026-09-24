@@ -1,5 +1,14 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, Field
+
+import csv
+import io
 
 from app.config import get_clay_company_csv_path
 from app.db.database import get_connection
@@ -240,6 +249,130 @@ def list_companies():
             build_company_intelligence(company)
             for company in companies
         ],
+    }
+
+
+@router.post(
+    "/upload-clay-csv",
+    status_code=status.HTTP_200_OK,
+)
+async def upload_clay_company_csv(
+    file: UploadFile = File(...),
+):
+    filename = file.filename or ""
+
+    if not filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only CSV files are accepted.",
+        )
+
+    contents = await file.read()
+
+    if not contents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded CSV is empty.",
+        )
+
+    try:
+        decoded = contents.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV must use UTF-8 encoding.",
+        )
+
+    try:
+        reader = csv.DictReader(
+            io.StringIO(decoded)
+        )
+        headers = reader.fieldnames or []
+
+        normalised_headers = {
+            header.strip().lower()
+            for header in headers
+            if header
+        }
+
+        required_headers = {
+            "name",
+            "domain",
+        }
+
+        missing_headers = (
+            required_headers
+            - normalised_headers
+        )
+
+        if missing_headers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Clay CSV is missing required "
+                    "columns: "
+                    + ", ".join(
+                        sorted(missing_headers)
+                    )
+                ),
+            )
+
+        rows = list(reader)
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Could not parse uploaded CSV: "
+                f"{exc}"
+            ),
+        )
+
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "CSV contains headers but no "
+                "company rows."
+            ),
+        )
+
+    destination = get_clay_company_csv_path()
+    destination.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    temporary_path = destination.with_suffix(
+        destination.suffix + ".uploading"
+    )
+
+    try:
+        temporary_path.write_bytes(contents)
+        temporary_path.replace(destination)
+
+    except OSError as exc:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "Could not save Clay CSV: "
+                f"{exc}"
+            ),
+        )
+
+    return {
+        "status": "uploaded",
+        "filename": filename,
+        "rows_received": len(rows),
+        "destination": str(destination),
     }
 
 
