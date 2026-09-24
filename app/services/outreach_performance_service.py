@@ -81,6 +81,39 @@ def _calculate_metrics(rows: List[dict]) -> dict:
     }
 
 
+def _calculate_attribution_summary(
+    rows: List[dict],
+) -> dict:
+    total_sent = len(rows)
+
+    snapshot_count = sum(
+        1
+        for row in rows
+        if row.get("attribution_source") == "SNAPSHOT"
+    )
+
+    legacy_live_count = sum(
+        1
+        for row in rows
+        if row.get("attribution_source") == "LEGACY_LIVE"
+    )
+
+    if total_sent:
+        snapshot_coverage = round(
+            snapshot_count / total_sent * 100,
+            1,
+        )
+    else:
+        snapshot_coverage = 0.0
+
+    return {
+        "total_sent": total_sent,
+        "snapshot_count": snapshot_count,
+        "legacy_live_count": legacy_live_count,
+        "snapshot_coverage": snapshot_coverage,
+    }
+
+
 def _group_performance(
     rows: List[dict],
     field: str,
@@ -122,6 +155,7 @@ def get_outreach_performance() -> Dict:
 
     return {
         "overall": _calculate_metrics(rows),
+        "attribution": _calculate_attribution_summary(rows),
         "by_industry": _group_performance(
             rows,
             "industry",

@@ -7,6 +7,7 @@ from app.services.outreach_outcome_service import (
     record_outreach_outcome,
 )
 from app.services.outreach_performance_service import (
+    _calculate_attribution_summary,
     get_outreach_performance,
 )
 from app.services.outreach_execution_service import (
@@ -530,3 +531,130 @@ def test_signal_added_after_send_is_not_attributed_to_old_outreach():
     assert "POST_SEND_SIGNAL" not in before_types
     assert "POST_SEND_SIGNAL" not in after_types
     assert after_types == before_types
+
+
+def test_sent_performance_exposes_snapshot_attribution_source():
+    outreach = _create_sent_outreach(
+        industry="Attribution Test Industry",
+        buyer_category="Operations",
+        business_model="B2B",
+    )
+
+    row = next(
+        item
+        for item in get_sent_outreach_performance_rows()
+        if item["outreach_id"] == outreach["id"]
+    )
+
+    assert row["attribution_source"] == "SNAPSHOT"
+
+
+def test_sent_performance_exposes_legacy_live_attribution_source():
+    outreach = _create_sent_outreach(
+        industry="Legacy Attribution Industry",
+        buyer_category="Operations",
+        business_model="B2B",
+    )
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            DELETE FROM outreach_attribution_snapshots
+            WHERE outreach_message_id = ?
+            """,
+            (
+                outreach["id"],
+            ),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    row = next(
+        item
+        for item in get_sent_outreach_performance_rows()
+        if item["outreach_id"] == outreach["id"]
+    )
+
+    assert row["attribution_source"] == "LEGACY_LIVE"
+
+
+def test_performance_reports_attribution_coverage():
+    snapshot_outreach = _create_sent_outreach(
+        industry="Coverage Snapshot Industry",
+        buyer_category="Operations",
+        business_model="B2B",
+    )
+
+    legacy_outreach = _create_sent_outreach(
+        industry="Coverage Legacy Industry",
+        buyer_category="Operations",
+        business_model="B2B",
+    )
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            DELETE FROM outreach_attribution_snapshots
+            WHERE outreach_message_id = ?
+            """,
+            (
+                legacy_outreach["id"],
+            ),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    performance = get_outreach_performance()
+    attribution = performance["attribution"]
+
+    rows = get_sent_outreach_performance_rows()
+
+    expected_snapshot_count = sum(
+        1
+        for row in rows
+        if row["attribution_source"] == "SNAPSHOT"
+    )
+
+    expected_legacy_count = sum(
+        1
+        for row in rows
+        if row["attribution_source"] == "LEGACY_LIVE"
+    )
+
+    assert snapshot_outreach["id"] != legacy_outreach["id"]
+
+    assert attribution["total_sent"] == len(rows)
+    assert attribution["snapshot_count"] == expected_snapshot_count
+    assert attribution["legacy_live_count"] == expected_legacy_count
+
+    assert (
+        attribution["snapshot_count"]
+        + attribution["legacy_live_count"]
+        == attribution["total_sent"]
+    )
+
+    assert attribution["snapshot_coverage"] == round(
+        expected_snapshot_count / len(rows) * 100,
+        1,
+    )
+
+
+def test_attribution_summary_handles_zero_sent():
+    attribution = _calculate_attribution_summary([])
+
+    assert attribution == {
+        "total_sent": 0,
+        "snapshot_count": 0,
+        "legacy_live_count": 0,
+        "snapshot_coverage": 0.0,
+    }

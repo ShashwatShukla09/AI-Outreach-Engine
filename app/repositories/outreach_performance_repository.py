@@ -23,6 +23,12 @@ def get_sent_outreach_performance_rows() -> List[dict]:
                 om.contact_id,
                 om.sent_at,
 
+                CASE
+                    WHEN oas.id IS NOT NULL
+                    THEN 'SNAPSHOT'
+                    ELSE 'LEGACY_LIVE'
+                END AS attribution_source,
+
                 c.name AS company_name,
                 COALESCE(
                     oas.icp_id,
@@ -132,6 +138,11 @@ def get_sent_outreach_performance_rows() -> List[dict]:
                 om.company_id,
                 om.contact_id,
                 om.sent_at,
+                CASE
+                    WHEN oas.id IS NOT NULL
+                    THEN 'SNAPSHOT'
+                    ELSE 'LEGACY_LIVE'
+                END,
                 c.name,
                 COALESCE(oas.icp_id, c.icp_id),
                 COALESCE(oas.market, c.market),

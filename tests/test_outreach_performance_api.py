@@ -16,6 +16,7 @@ def test_outreach_performance_endpoint():
     data = response.json()
 
     assert "overall" in data
+    assert "attribution" in data
     assert "by_industry" in data
     assert "by_buyer_category" in data
     assert "by_business_model" in data
@@ -27,6 +28,7 @@ def test_outreach_performance_endpoint():
     assert "learnings" in data
 
     overall = data["overall"]
+    attribution = data["attribution"]
 
     assert "sent" in overall
     assert "replied" in overall
@@ -44,6 +46,16 @@ def test_outreach_performance_endpoint():
         "INSUFFICIENT_DATA",
         "EARLY_SIGNAL",
     }
+
+    assert attribution["total_sent"] == overall["sent"]
+
+    assert (
+        attribution["snapshot_count"]
+        + attribution["legacy_live_count"]
+        == attribution["total_sent"]
+    )
+
+    assert 0.0 <= attribution["snapshot_coverage"] <= 100.0
 
 
 def test_outreach_performance_segments_have_metrics():

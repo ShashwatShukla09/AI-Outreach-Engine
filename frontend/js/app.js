@@ -130,6 +130,7 @@ function renderPerformanceIntelligence(data) {
     performanceIntelligenceData = data;
 
     const overall = data?.overall || {};
+    const attribution = data?.attribution || {};
 
     const replyRate = document.getElementById(
         "performance-reply-rate"
@@ -154,6 +155,9 @@ function renderPerformanceIntelligence(data) {
     );
     const evidence = document.getElementById(
         "performance-evidence"
+    );
+    const attributionStatus = document.getElementById(
+        "performance-attribution"
     );
 
     if (replyRate) {
@@ -194,6 +198,30 @@ function renderPerformanceIntelligence(data) {
         evidence.textContent = formatPerformanceLabel(
             overall.evidence_status || "NO_DATA"
         );
+    }
+
+    if (attributionStatus) {
+        const coverage =
+            attribution.snapshot_coverage ?? 0;
+        const legacyCount =
+            attribution.legacy_live_count ?? 0;
+        const totalSent =
+            attribution.total_sent ?? 0;
+
+        let detail = "No sent outreach yet";
+
+        if (totalSent > 0 && legacyCount === 0) {
+            detail = "All sends frozen";
+        } else if (legacyCount === 1) {
+            detail = "1 legacy send";
+        } else if (legacyCount > 1) {
+            detail = `${legacyCount} legacy sends`;
+        }
+
+        attributionStatus.innerHTML = `
+            <strong>${coverage}% snapshot coverage</strong>
+            <span>${detail}</span>
+        `;
     }
 
     renderPerformanceLearnings(
@@ -427,6 +455,9 @@ function renderPerformanceError() {
     const evidence = document.getElementById(
         "performance-evidence"
     );
+    const attribution = document.getElementById(
+        "performance-attribution"
+    );
     const learnings = document.getElementById(
         "performance-learnings"
     );
@@ -436,6 +467,13 @@ function renderPerformanceError() {
 
     if (evidence) {
         evidence.textContent = "Unavailable";
+    }
+
+    if (attribution) {
+        attribution.innerHTML = `
+            <strong>Attribution unavailable</strong>
+            <span>Performance data couldn't be verified</span>
+        `;
     }
 
     if (learnings) {
