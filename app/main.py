@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.campaigns import router as campaigns_router
 from app.api.companies import router as companies_router
 from app.api.icps import router as icps_router
 from app.api.outreach import router as outreach_router
@@ -72,4 +73,5 @@ def health():
 app.include_router(products_router)
 app.include_router(icps_router)
 app.include_router(companies_router)
+app.include_router(campaigns_router)
 app.include_router(outreach_router)
