@@ -24,6 +24,12 @@ from app.services.outreach_outcome_service import (
     list_outreach_outcomes,
     record_outreach_outcome,
 )
+from app.services.outreach_performance_service import (
+    get_outreach_performance,
+)
+from app.services.outreach_learning_service import (
+    get_outreach_learnings,
+)
 from app.services.outreach_review_service import (
     approve_outreach_message,
     edit_outreach,
@@ -269,6 +275,16 @@ def get_outreach_events_endpoint(
         "status": message["status"],
         "events": events,
     }
+
+@router.get("/performance")
+def get_outreach_performance_endpoint():
+    performance = get_outreach_performance()
+
+    return {
+        **performance,
+        "learnings": get_outreach_learnings(),
+    }
+
 
 @router.post("/{outreach_id}/outcomes")
 def create_outreach_outcome_endpoint(

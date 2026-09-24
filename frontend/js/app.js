@@ -36,6 +36,33 @@ async function loadDashboard() {
         renderReadyToSend(data.ready_to_send);
         renderSentHistory(data.sent_history);
 
+        try {
+            const performanceResponse = await fetch(
+                `${API_BASE_URL}/api/outreach/performance`
+            );
+
+            if (!performanceResponse.ok) {
+                throw new Error(
+                    `Performance request failed: ${performanceResponse.status}`
+                );
+            }
+
+            const performanceData =
+                await performanceResponse.json();
+
+            renderPerformanceIntelligence(
+                performanceData
+            );
+
+        } catch (performanceError) {
+            console.error(
+                "Could not load performance intelligence:",
+                performanceError
+            );
+
+            renderPerformanceError();
+        }
+
     } catch (error) {
         console.error("Could not load dashboard:", error);
         renderQueueError();
@@ -84,6 +111,237 @@ function updateDashboardMetrics(metrics) {
         sent.textContent = metrics.sent;
     }
 }
+
+function formatPerformanceLabel(value) {
+    return String(value || "")
+        .replaceAll("_", " ")
+        .toLowerCase()
+        .replace(
+            /\b\w/g,
+            (character) => character.toUpperCase()
+        );
+}
+
+
+function renderPerformanceIntelligence(data) {
+    const overall = data?.overall || {};
+
+    const replyRate = document.getElementById(
+        "performance-reply-rate"
+    );
+    const positiveRate = document.getElementById(
+        "performance-positive-rate"
+    );
+    const meetingRate = document.getElementById(
+        "performance-meeting-rate"
+    );
+    const sentCount = document.getElementById(
+        "performance-sent-count"
+    );
+    const repliedCount = document.getElementById(
+        "performance-replied-count"
+    );
+    const positiveCount = document.getElementById(
+        "performance-positive-count"
+    );
+    const meetingCount = document.getElementById(
+        "performance-meeting-count"
+    );
+    const evidence = document.getElementById(
+        "performance-evidence"
+    );
+
+    if (replyRate) {
+        replyRate.textContent =
+            `${overall.reply_rate ?? 0}%`;
+    }
+
+    if (positiveRate) {
+        positiveRate.textContent =
+            `${overall.positive_reply_rate ?? 0}%`;
+    }
+
+    if (meetingRate) {
+        meetingRate.textContent =
+            `${overall.meeting_rate ?? 0}%`;
+    }
+
+    if (sentCount) {
+        sentCount.textContent = overall.sent ?? 0;
+    }
+
+    if (repliedCount) {
+        repliedCount.textContent =
+            `${overall.replied ?? 0} replies`;
+    }
+
+    if (positiveCount) {
+        positiveCount.textContent =
+            `${overall.positive ?? 0} positive replies`;
+    }
+
+    if (meetingCount) {
+        meetingCount.textContent =
+            `${overall.meetings_booked ?? 0} meetings booked`;
+    }
+
+    if (evidence) {
+        evidence.textContent = formatPerformanceLabel(
+            overall.evidence_status || "NO_DATA"
+        );
+    }
+
+    renderPerformanceLearnings(
+        data?.learnings || []
+    );
+
+    renderSignalPerformance(
+        data?.by_signal_type || []
+    );
+}
+
+
+function renderPerformanceLearnings(learnings) {
+    const container = document.getElementById(
+        "performance-learnings"
+    );
+
+    if (!container) {
+        return;
+    }
+
+    if (!learnings.length) {
+        container.innerHTML = `
+            <div class="performance-empty">
+                No performance evidence yet.
+                Send outreach and record outcomes to start learning.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = learnings
+        .slice(0, 4)
+        .map((learning) => `
+            <article class="learning-item">
+                <div class="learning-item-top">
+                    <strong>
+                        ${escapeHtml(
+                            formatPerformanceLabel(
+                                learning.segment
+                            )
+                        )}
+                    </strong>
+
+                    <span>
+                        ${escapeHtml(
+                            formatPerformanceLabel(
+                                learning.dimension
+                            )
+                        )}
+                    </span>
+                </div>
+
+                <p>
+                    ${escapeHtml(learning.message)}
+                </p>
+
+                <div class="learning-meta">
+                    ${learning.metrics?.sent ?? 0} sent
+                    ·
+                    ${escapeHtml(
+                        formatPerformanceLabel(
+                            learning.status
+                        )
+                    )}
+                </div>
+            </article>
+        `)
+        .join("");
+}
+
+
+function renderSignalPerformance(signals) {
+    const container = document.getElementById(
+        "signal-performance-list"
+    );
+
+    if (!container) {
+        return;
+    }
+
+    if (!signals.length) {
+        container.innerHTML = `
+            <div class="performance-empty">
+                No signal performance data yet.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = signals
+        .slice(0, 5)
+        .map((signal) => `
+            <article class="signal-performance-item">
+                <div>
+                    <strong>
+                        ${escapeHtml(
+                            formatPerformanceLabel(
+                                signal.segment
+                            )
+                        )}
+                    </strong>
+
+                    <span>
+                        ${signal.sent ?? 0} sent
+                    </span>
+                </div>
+
+                <div class="signal-rate">
+                    <strong>
+                        ${signal.reply_rate ?? 0}%
+                    </strong>
+
+                    <span>reply</span>
+                </div>
+            </article>
+        `)
+        .join("");
+}
+
+
+function renderPerformanceError() {
+    const evidence = document.getElementById(
+        "performance-evidence"
+    );
+    const learnings = document.getElementById(
+        "performance-learnings"
+    );
+    const signals = document.getElementById(
+        "signal-performance-list"
+    );
+
+    if (evidence) {
+        evidence.textContent = "Unavailable";
+    }
+
+    if (learnings) {
+        learnings.innerHTML = `
+            <div class="performance-empty">
+                Performance intelligence couldn't be loaded.
+            </div>
+        `;
+    }
+
+    if (signals) {
+        signals.innerHTML = `
+            <div class="performance-empty">
+                Signal performance couldn't be loaded.
+            </div>
+        `;
+    }
+}
+
 
 function renderReviewQueue(messages) {
     const queue = document.getElementById("review-queue");
