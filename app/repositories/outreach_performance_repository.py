@@ -24,10 +24,17 @@ def get_sent_outreach_performance_rows() -> List[dict]:
                 om.sent_at,
 
                 c.name AS company_name,
+                c.icp_id,
+                c.market,
                 c.industry,
                 c.country,
                 c.employee_count,
                 c.business_model,
+
+                i.name AS icp_name,
+                i.product_id,
+
+                p.name AS product_name,
 
                 ct.job_title,
                 ct.buyer_category,
@@ -69,6 +76,12 @@ def get_sent_outreach_performance_rows() -> List[dict]:
             JOIN companies c
                 ON c.id = om.company_id
 
+            JOIN icps i
+                ON i.id = c.icp_id
+
+            JOIN products p
+                ON p.id = i.product_id
+
             LEFT JOIN contacts ct
                 ON ct.id = om.contact_id
 
@@ -83,10 +96,15 @@ def get_sent_outreach_performance_rows() -> List[dict]:
                 om.contact_id,
                 om.sent_at,
                 c.name,
+                c.icp_id,
+                c.market,
                 c.industry,
                 c.country,
                 c.employee_count,
                 c.business_model,
+                i.name,
+                i.product_id,
+                p.name,
                 ct.job_title,
                 ct.buyer_category
 

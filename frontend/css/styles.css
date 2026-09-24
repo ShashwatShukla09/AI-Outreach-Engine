@@ -3227,3 +3227,156 @@ body.review-open {
 
     text-align: center;
 }
+
+
+/* PERFORMANCE SEGMENTATION */
+
+.performance-segment-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    width: fit-content;
+    max-width: 100%;
+
+    margin-bottom: 14px;
+    padding: 5px;
+
+    overflow-x: auto;
+
+    border-radius: 999px;
+
+    background: rgba(17, 17, 15, 0.055);
+
+    scrollbar-width: none;
+}
+
+.performance-segment-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.performance-segment-tab {
+    flex-shrink: 0;
+
+    padding: 8px 13px;
+
+    border: 0;
+    border-radius: 999px;
+
+    background: transparent;
+
+    color: rgba(17, 17, 15, 0.58);
+
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.035em;
+
+    cursor: pointer;
+
+    transition:
+        background var(--spring),
+        color var(--spring),
+        transform var(--spring);
+}
+
+.performance-segment-tab:hover {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.performance-segment-tab:active {
+    transform: scale(0.97);
+}
+
+.performance-segment-tab.active {
+    background: var(--ink);
+    color: white;
+}
+
+.performance-segment-results {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(190px, 1fr));
+
+    gap: 8px;
+
+    margin-bottom: 14px;
+}
+
+.performance-segment-results[hidden] {
+    display: none;
+}
+
+.performance-segment-card {
+    min-width: 0;
+
+    padding: 15px 16px;
+
+    border-radius: var(--radius-md);
+
+    background: rgba(255, 255, 255, 0.52);
+}
+
+.performance-segment-card strong {
+    display: block;
+
+    overflow: hidden;
+
+    margin-bottom: 10px;
+
+    font-size: 12px;
+    font-weight: 650;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.performance-segment-card-metrics {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.performance-segment-card-metrics > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.performance-segment-card-metrics span {
+    color: var(--muted);
+
+    font-size: 9px;
+    font-weight: 650;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.performance-segment-card-metrics b {
+    font-size: 18px;
+    font-weight: 570;
+    letter-spacing: -0.035em;
+}
+
+.performance-segment-evidence {
+    margin-top: 10px;
+
+    color: rgba(17, 17, 15, 0.48);
+
+    font-size: 9px;
+    font-weight: 650;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+    .performance-segment-tabs {
+        width: 100%;
+    }
+
+    .performance-segment-results {
+        grid-template-columns: 1fr;
+    }
+}

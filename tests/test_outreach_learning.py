@@ -108,6 +108,10 @@ def test_learning_service_includes_all_dimensions():
     assert "buyer category" in dimensions
     assert "business model" in dimensions
     assert "signal type" in dimensions
+    assert "product" in dimensions
+    assert "ICP" in dimensions
+    assert "market" in dimensions
+    assert "country" in dimensions
 
 
 def test_learning_contains_metrics_and_segment():

@@ -112,6 +112,9 @@ function updateDashboardMetrics(metrics) {
     }
 }
 
+let performanceIntelligenceData = null;
+
+
 function formatPerformanceLabel(value) {
     return String(value || "")
         .replaceAll("_", " ")
@@ -124,6 +127,8 @@ function formatPerformanceLabel(value) {
 
 
 function renderPerformanceIntelligence(data) {
+    performanceIntelligenceData = data;
+
     const overall = data?.overall || {};
 
     const replyRate = document.getElementById(
@@ -198,6 +203,114 @@ function renderPerformanceIntelligence(data) {
     renderSignalPerformance(
         data?.by_signal_type || []
     );
+
+    initialisePerformanceSegmentTabs();
+    renderPerformanceSegment("overall");
+}
+
+
+function renderPerformanceSegment(view) {
+    const container = document.getElementById(
+        "performance-segment-results"
+    );
+
+    if (!container || !performanceIntelligenceData) {
+        return;
+    }
+
+    const tabs = document.querySelectorAll(
+        ".performance-segment-tab"
+    );
+
+    tabs.forEach((tab) => {
+        tab.classList.toggle(
+            "active",
+            tab.dataset.performanceView === view
+        );
+    });
+
+    if (view === "overall") {
+        container.hidden = true;
+        container.innerHTML = "";
+        return;
+    }
+
+    const segments =
+        performanceIntelligenceData?.[view] || [];
+
+    container.hidden = false;
+
+    if (!segments.length) {
+        container.innerHTML = `
+            <div class="performance-empty">
+                No sent outreach data for this segment yet.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = segments
+        .map((segment) => `
+            <article class="performance-segment-card">
+                <strong title="${escapeHtml(
+                    String(segment.segment || "Unknown")
+                )}">
+                    ${escapeHtml(
+                        formatPerformanceLabel(
+                            segment.segment || "Unknown"
+                        )
+                    )}
+                </strong>
+
+                <div class="performance-segment-card-metrics">
+                    <div>
+                        <span>Sent</span>
+                        <b>${segment.sent ?? 0}</b>
+                    </div>
+
+                    <div>
+                        <span>Reply</span>
+                        <b>${segment.reply_rate ?? 0}%</b>
+                    </div>
+
+                    <div>
+                        <span>Meeting</span>
+                        <b>${segment.meeting_rate ?? 0}%</b>
+                    </div>
+                </div>
+
+                <div class="performance-segment-evidence">
+                    ${escapeHtml(
+                        formatPerformanceLabel(
+                            segment.evidence_status ||
+                            "NO_DATA"
+                        )
+                    )}
+                </div>
+            </article>
+        `)
+        .join("");
+}
+
+
+function initialisePerformanceSegmentTabs() {
+    const tabs = document.querySelectorAll(
+        ".performance-segment-tab"
+    );
+
+    tabs.forEach((tab) => {
+        if (tab.dataset.performanceBound === "true") {
+            return;
+        }
+
+        tab.dataset.performanceBound = "true";
+
+        tab.addEventListener("click", () => {
+            renderPerformanceSegment(
+                tab.dataset.performanceView || "overall"
+            );
+        });
+    });
 }
 
 

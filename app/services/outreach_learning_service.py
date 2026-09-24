@@ -10,6 +10,10 @@ DIMENSIONS = (
     ("by_buyer_category", "buyer category"),
     ("by_business_model", "business model"),
     ("by_signal_type", "signal type"),
+    ("by_product", "product"),
+    ("by_icp", "ICP"),
+    ("by_market", "market"),
+    ("by_country", "country"),
 )
 
 

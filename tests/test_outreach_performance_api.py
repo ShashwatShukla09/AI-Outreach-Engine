@@ -20,6 +20,10 @@ def test_outreach_performance_endpoint():
     assert "by_buyer_category" in data
     assert "by_business_model" in data
     assert "by_signal_type" in data
+    assert "by_product" in data
+    assert "by_icp" in data
+    assert "by_market" in data
+    assert "by_country" in data
     assert "learnings" in data
 
     overall = data["overall"]
@@ -55,6 +59,10 @@ def test_outreach_performance_segments_have_metrics():
         "by_industry",
         "by_buyer_category",
         "by_business_model",
+        "by_product",
+        "by_icp",
+        "by_market",
+        "by_country",
     )
 
     for group_name in segment_groups:

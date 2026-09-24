@@ -321,3 +321,64 @@ def test_signal_performance_does_not_double_count_same_type():
     assert hiring["sent"] == 1
     assert hiring["replied"] == 1
     assert hiring["reply_rate"] == 100.0
+
+
+def test_performance_segments_by_product_icp_market_and_country():
+    first = _create_sent_outreach(
+        industry="Test SaaS",
+        buyer_category="Operations",
+        business_model="B2B SaaS",
+    )
+
+    second = _create_sent_outreach(
+        industry="Test SaaS",
+        buyer_category="Operations",
+        business_model="B2B SaaS",
+    )
+
+    performance = get_outreach_performance()
+
+    expected_keys = {
+        "by_product",
+        "by_icp",
+        "by_market",
+        "by_country",
+    }
+
+    assert expected_keys.issubset(performance.keys())
+
+    for key in expected_keys:
+        total_sent = sum(
+            segment["sent"]
+            for segment in performance[key]
+        )
+
+        assert total_sent == performance["overall"]["sent"]
+
+    assert performance["overall"]["sent"] >= 2
+
+    created_ids = {
+        first["id"],
+        second["id"],
+    }
+
+    assert len(created_ids) == 2
+
+
+def test_non_sent_outreach_does_not_enter_performance_segments():
+    performance = get_outreach_performance()
+
+    overall_sent = performance["overall"]["sent"]
+
+    for key in [
+        "by_product",
+        "by_icp",
+        "by_market",
+        "by_country",
+    ]:
+        segmented_sent = sum(
+            segment["sent"]
+            for segment in performance[key]
+        )
+
+        assert segmented_sent == overall_sent

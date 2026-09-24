@@ -138,4 +138,20 @@ def get_outreach_performance() -> Dict:
             signal_rows,
             "signal_type",
         ),
+        "by_product": _group_performance(
+            rows,
+            "product_name",
+        ),
+        "by_icp": _group_performance(
+            rows,
+            "icp_name",
+        ),
+        "by_market": _group_performance(
+            rows,
+            "market",
+        ),
+        "by_country": _group_performance(
+            rows,
+            "country",
+        ),
     }
