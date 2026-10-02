@@ -26,6 +26,13 @@ This system combines those steps into one structured intelligence and automation
 
 ---
 
+
+### Outreach Control Centre
+
+The control centre brings qualified accounts, buying intent, outreach status and performance intelligence into one operational view.
+
+![Outreach Control Centre](docs/images/01-dashboard.png)
+
 ## System Workflow
 
 ```text
@@ -63,6 +70,13 @@ Performance Learning
 The system separates **research, reasoning, review and execution**, rather than allowing an AI model to send messages autonomously.
 
 ---
+
+
+### End-to-End Architecture
+
+The pipeline separates qualification, research, AI reasoning, human approval, execution and performance learning.
+
+![AI Buyer Intelligence and Outreach Engine Architecture](docs/images/04-system-architecture.png)
 
 ## Core Features
 
@@ -174,6 +188,13 @@ Improve future prioritisation
 The system includes a replenishment workflow so new companies can continuously enter the intelligence pipeline instead of relying on a static lead list.
 
 ---
+
+
+### Company Intelligence
+
+Accounts are evaluated against the ICP, enriched with relevant context, prioritised using fit and buying signals, and connected to relevant buyers.
+
+![Company Intelligence](docs/images/02-company-intelligence.png)
 
 ## Architecture
 
@@ -288,6 +309,13 @@ The execution workflow only operates after the outreach has entered the appropri
 This pattern is useful for AI systems where autonomous actions could have real-world consequences.
 
 ---
+
+
+### Human-in-the-Loop Outreach
+
+AI-generated messages remain under human control: review, approve or reject, execute approved outreach, and track outcomes.
+
+![Outreach Workspace](docs/images/03-outreach-workspace.png)
 
 ## Tech Stack
 
@@ -503,33 +531,10 @@ A simple demonstration can follow this sequence:
 
 ---
 
-## Product Walkthrough
-
-### Outreach Control Centre
-
-A unified view of qualified accounts, buying intent, outreach performance and messages approved for execution.
-
-![Outreach Control Centre](docs/images/01-dashboard.png)
-
-### Company Intelligence
-
-Companies are qualified against the ICP, prioritised using fit and buying signals, and connected to relevant decision-makers and account research.
-
-![Company Intelligence](docs/images/02-company-intelligence.png)
-
-### Human-in-the-Loop Outreach
-
-AI-generated outreach moves through a controlled lifecycle: review, approval, execution and outcome tracking.
-
-![Outreach Workspace](docs/images/03-outreach-workspace.png)
-
----
 
 ## System Architecture
 
 The system separates deterministic business logic, AI reasoning and external execution so generated actions remain observable and human-controlled.
-
-![AI Buyer Intelligence and Outreach Engine Architecture](docs/images/04-system-architecture.png)
 
 ---
 
