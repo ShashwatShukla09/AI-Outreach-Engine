@@ -158,7 +158,7 @@ def generate_outreach_draft(
         f"Hi {first_name},\n\n"
         f"{timing_line}\n\n"
         f"Given your role as {job_title}, I thought "
-        "this might be relevant. Clearlyy turns SOPs, "
+        "this might be relevant. Our platform turns SOPs, "
         "manuals and training material into short, "
         "accessible videos for distributed frontline "
         "teams.\n\n"

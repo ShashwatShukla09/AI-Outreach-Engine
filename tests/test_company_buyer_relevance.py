@@ -53,7 +53,7 @@ BUYER_CATEGORIES = [
         ),
     ],
 )
-def test_clearlyy_buyer_titles_match(
+def test_buyer_titles_match(
     job_title,
     expected_category,
 ):

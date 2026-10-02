@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 DEFAULT_CLAY_COMPANY_CSV_PATH = (
-    "data/imports/clearlyy_india_logistics.csv"
+    "data/imports/demo_companies.csv"
 )
 
 

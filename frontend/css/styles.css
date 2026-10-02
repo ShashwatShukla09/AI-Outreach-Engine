@@ -3426,3 +3426,27 @@ body.review-open {
         flex-wrap: wrap;
     }
 }
+
+/* PORTFOLIO DASHBOARD — compact empty review state */
+
+#dashboard-view .workspace {
+    min-height: auto;
+}
+
+#dashboard-view #review-queue .queue-loading {
+    min-height: 110px;
+    padding: 18px 0;
+}
+
+#dashboard-view #review-queue .queue-loading .empty-icon {
+    font-size: 22px;
+}
+
+#dashboard-view #review-queue .queue-loading h4 {
+    margin: 8px 0 4px;
+    font-size: 16px;
+}
+
+#dashboard-view #review-queue .queue-loading p {
+    font-size: 13px;
+}

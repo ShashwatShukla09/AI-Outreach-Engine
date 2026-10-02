@@ -39,7 +39,7 @@ def replenish_companies(
     qualification -> selective enrichment -> requalification
     -> scoring/signals.
 
-    Companies that finish QUALIFIED also receive a Clearlyy
+    Companies that finish QUALIFIED also receive a the platform
     relevance assessment.
     """
 

@@ -366,6 +366,7 @@ def create_tables() -> None:
 
                 company_id INTEGER NOT NULL,
                 contact_id INTEGER,
+                campaign_id INTEGER,
 
                 channel TEXT NOT NULL DEFAULT 'EMAIL',
 
@@ -389,6 +390,10 @@ def create_tables() -> None:
 
                 FOREIGN KEY (contact_id)
                     REFERENCES contacts(id)
+                    ON DELETE SET NULL,
+
+                FOREIGN KEY (campaign_id)
+                    REFERENCES campaigns(id)
                     ON DELETE SET NULL
             );
 
@@ -547,6 +552,9 @@ def create_tables() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_outreach_company
             ON outreach_messages(company_id);
+
+            CREATE INDEX IF NOT EXISTS idx_outreach_campaign
+            ON outreach_messages(campaign_id);
 
             CREATE INDEX IF NOT EXISTS idx_outreach_outcomes_message
             ON outreach_outcomes(outreach_message_id);

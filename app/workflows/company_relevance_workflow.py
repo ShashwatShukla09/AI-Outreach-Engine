@@ -6,8 +6,8 @@ from app.repositories.company_repository import (
 from app.repositories.company_relevance_repository import (
     save_company_relevance_assessment,
 )
-from app.services.clearlyy_relevance_service import (
-    assess_clearlyy_relevance,
+from app.services.company_relevance_service import (
+    assess_company_relevance,
 )
 
 
@@ -20,7 +20,7 @@ def assess_and_save_company_relevance(
             "for relevance."
         )
 
-    assessment = assess_clearlyy_relevance(
+    assessment = assess_company_relevance(
         company
     )
 

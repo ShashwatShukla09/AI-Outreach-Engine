@@ -8,7 +8,7 @@ def make_icp():
     return ICPResponse(
         id=1,
         product_id=1,
-        name="Clearlyy Logistics ICP",
+        name="Logistics Operations ICP",
         industries=["Logistics"],
         company_size_min=200,
         company_size_max=100000,

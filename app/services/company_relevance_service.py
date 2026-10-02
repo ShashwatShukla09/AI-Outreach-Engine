@@ -53,7 +53,7 @@ def _find_matches(
     )
 
 
-def assess_clearlyy_relevance(
+def assess_company_relevance(
     company: dict,
 ) -> Dict:
     name = str(company.get("name") or "")

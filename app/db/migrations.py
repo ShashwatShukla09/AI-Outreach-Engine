@@ -206,6 +206,26 @@ def run_migrations() -> None:
             """
         )
 
+        if not column_exists(
+            "outreach_messages",
+            "campaign_id",
+        ):
+            connection.execute(
+                """
+                ALTER TABLE outreach_messages
+                ADD COLUMN campaign_id INTEGER
+                    REFERENCES campaigns(id)
+                    ON DELETE SET NULL
+                """
+            )
+
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_outreach_campaign
+            ON outreach_messages(campaign_id)
+            """
+        )
+
         connection.commit()
 
     finally:

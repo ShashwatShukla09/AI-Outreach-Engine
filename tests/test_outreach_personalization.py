@@ -21,7 +21,7 @@ from tests.test_company_scoring import (
 )
 
 
-def prepare_clearlyy_style_company():
+def prepare_demo_company():
     companies = prepare_scoring_companies()
 
     company = next(
@@ -131,12 +131,12 @@ def prepare_clearlyy_style_company():
     )
 
 
-def test_clearlyy_outreach_uses_ranked_buyer_and_evidence():
+def test_outreach_uses_ranked_buyer_and_evidence():
     (
         company,
         operations_contact,
         learning_contact,
-    ) = prepare_clearlyy_style_company()
+    ) = prepare_demo_company()
 
     draft = generate_outreach_draft(
         company.id
@@ -191,9 +191,9 @@ def test_clearlyy_outreach_uses_ranked_buyer_and_evidence():
     )
 
 
-def test_clearlyy_generation_does_not_save_or_send():
+def test_generation_does_not_save_or_send():
     company, _, _ = (
-        prepare_clearlyy_style_company()
+        prepare_demo_company()
     )
 
     draft = generate_outreach_draft(

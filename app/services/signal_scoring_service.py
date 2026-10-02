@@ -7,7 +7,7 @@ from app.repositories.signal_repository import (
 
 
 SIGNAL_WEIGHTS: Dict[str, int] = {
-    # Clearlyy-relevant operational buying signals.
+    # company-relevant operational buying signals.
     "FRONTLINE_HIRING": 10,
     "FACILITY_EXPANSION": 10,
     "WORKFORCE_TRAINING": 10,
